@@ -1,0 +1,3 @@
+[submodule "GVG-Lua"]
+	path = GVG-Lua
+	url = https://github.com/Labrium/GVG-Lua.git
