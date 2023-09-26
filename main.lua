@@ -1,55 +1,27 @@
 --[[
- -- DPEio Builder 0.1
+ -- main.lua
+ -- DPEio Builder 0.2
+ --
  -- Copyright (c) 2023 Curbai. All rights reserved.
 --]]
 local class = require("30log")
+local UI = require("UI")
 local lvg = love.graphics
 local lvm = love.mouse
+local lvk = love.keyboard
 
 -- CONSTANTS
 local DEBUG = false
+UI.DEBUG = DEBUG and true or false
 local windowW, windowH = lvg.getDimensions()
-local level = 45                               -- Player level
-local scale = 0.25                             -- Zoom scale
-local size = (1 + ((level - 1) / 100)) * scale -- Player size
-local radius = 100                             -- Relative player size
-local lineW = 16 * scale                       -- Outline Width
-local shapeR = lineW                           -- Border radius
-local lineR = shapeR - (lineW / 2)             -- Outline border radius
-local uiW = 4                                  -- UI outline width
-local uiR = 12                                 -- UI Radius
-local uiFont = lvg.newFont("Now-Bold.otf", 18) -- Font
-local uiFontL = lvg.newFont("Now-Bold.otf", 22)
+local outlineWidth = 4
+local shapeRadius = 4
+local fadeStart = 0.15
+
+-- Settings
+local showNames = true
 
 -- FUNCTIONS
-local function normalizeColor(r, g, b, a)
-    return r / 255, g / 255, b / 255, (a or 1)
-end
-
-local color = {
-    red = { normalizeColor(255, 59, 48) },
-    orange = { normalizeColor(255, 149, 0) },
-    yellow = { normalizeColor(255, 204, 0) },
-    green = { normalizeColor(40, 205, 65) },
-    mint = { normalizeColor(0, 199, 190) },
-    teal = { normalizeColor(89, 173, 196) },
-    cyan = { normalizeColor(85, 190, 240) },
-    blue = { normalizeColor(0, 122, 255) },
-    indigo = { normalizeColor(88, 86, 214) },
-    purple = { normalizeColor(175, 82, 222) },
-    pink = { normalizeColor(255, 45, 85) },
-    brown = { normalizeColor(162, 132, 94) },
-    black = { normalizeColor(28, 28, 30) },
-    white = { normalizeColor(242, 242, 247) },
-    darkGray = { normalizeColor(142, 142, 147) },
-    gray = { normalizeColor(174, 174, 178) },
-    lightGray = { normalizeColor(199, 199, 204) },
-    line = { normalizeColor(0, 0, 0, 0.5) },
-    highlight = { normalizeColor(255, 255, 255, 0.25) },
-    shadow = { normalizeColor(0, 0, 0, 0.33) },
-    hover = { normalizeColor(255, 255, 255, 0.1) }
-}
-
 -- Convert between radians and degrees
 local function degToRad(d)
     return d * math.pi / 180
@@ -59,551 +31,776 @@ local function radToDeg(r)
     return r * 180 / math.pi
 end
 
--- Interpolation function
-local function lerp(v1, v2, a)
-    return (v1 * (1 - a)) + (v2 * a)
+-- Distribute points between a range that is centered on 0: e.g. if range is 200, values are between 100 and -100
+local function centered(i, n, t) -- (item number, number of items, total space or range)
+    return i * (t / n) - ((t / n) * ((n + 1) / 2))
+end
+
+-- Rotate point by angle around (0, 0)
+local function rotateBy(x, y, a) -- (x, y, angle)
+    return ((x * math.cos(a)) - (y * math.sin(a))), ((x * math.sin(a)) + (y * math.cos(a)))
+end
+
+-- Generate UUID as string
+local currentID = 0
+local function newID()
+    currentID = currentID + 1
+    return tostring(currentID)
+end
+
+-- Clamp value between two values
+local function clamp(v, m, n) -- (value, min, max)
+    return math.min(math.max(v, m), n)
+end
+
+-- Deep copy a table
+local function copy(obj, seen)
+    if type(obj) ~= 'table' then return obj end
+    if seen and seen[obj] then return seen[obj] end
+    local s = seen or {}
+    local res = {}
+    s[obj] = res
+    for k, v in pairs(obj) do res[copy(k, s)] = copy(v, s) end
+    return res --setmetatable(res, getmetatable(obj))
 end
 
 -- Check if table contains value
-local function hasValue(t, v)
-    for _, u in ipairs(t) do
-        if u == v then
+local function hasValue(t, s) -- (table, search)
+    for _, v in ipairs(t) do
+        if v == s then
             return true
         end
     end
     return false
 end
 
--- Distribute points between a range that is centered on 0: e.g. if range is 200, values are between 100 and -100
-local function centered(i, n, t) -- (index, number of items, total space or range)
-    return i * (t / n) - ((t / n) * ((n + 1) / 2))
+-- Combine tables
+-- local function combineTables(t1, t2) -- (table1, table2)
+--     for i = 1, #t2 do
+--         t1[#t1 + 1] = t2[i]
+--     end
+--     return t1
+-- end
+
+-- Compute recoil
+local function getRecoil(r, rt)
+    return math.sin(clamp((r - rt) / math.min(0.2, r), 0, 1) * math.pi) * 4
 end
 
--- DRAWING FUNCTIONS
--- Polygons
-local function drawCircle(x, y, r, c) -- (x, y, radius, color)
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.circle("fill", x, y, r)
-        lvg.setColor(color.line)
-    end
-    lvg.setLineWidth(lineW)
-    lvg.circle("line", x, y, r - (lineW / 2))
+-- Compute fade
+local function getFade(h)
+    return h <= fadeStart and (h / fadeStart) or 1
 end
 
-local function drawSquare(x, y, r, c) -- (x, y, radius, color)
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.rectangle("fill", x - r, y - r, r * 2, r * 2, shapeR, shapeR)
-        lvg.setColor(color.line)
-    end
-    lvg.setLineWidth(lineW)
-    lvg.rectangle("line", x - r + (lineW / 2), y - r + (lineW / 2), (r * 2) - lineW, (r * 2) - lineW, lineR, lineR)
+-- Fire accessory
+local function fire(o, p, px, py, pa, s)
+    local angleT = pa + degToRad(s.angle)
+    local x, y = rotateBy(s.x + s.length, s.y, angleT)
+    local randAngle = angleT + ((math.random() - 0.5) * degToRad(s.stats.spread))
+    local randSpeed = s.stats.speed + ((math.random() - 0.5) * 2)
+    local newO = o(p, px, py, x, y, math.cos(randAngle) * randSpeed, math.sin(randAngle) * randSpeed, s.size, {
+        health = s.stats.health,
+        penetration = s.stats.penetration,
+        damage = s.stats.damage
+    }, p.color, s.shape)
+    p.objects[newO.id] = newO
+    s.reloadTime = s.stats.reload
 end
 
-local function drawPentagon(x, y, r, c) -- (x, y, radius, color)
-    lvg.translate(x, y)
-    local a1 = degToRad(18)
-    local a2 = degToRad(54)
-    local sa1 = math.sin(a1)
-    local ca1 = math.cos(a1)
-    local sa2 = math.sin(a2)
-    local ca2 = math.cos(a2)
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.polygon("fill", r, 0, r * sa1, r * ca1, -r * sa2, r * ca2, -r * sa2, -r * ca2, r * sa1, -r * ca1)
-        lvg.setColor(color.line)
+-- Draw body
+local function drawBody(c, s)
+    lvg.translate(s.x, s.y)
+    local tTX, tTY = lvg.inverseTransformPoint((s.targetX or s.owner.targetX), (s.targetY or s.owner.targetY))
+    s.angle = math.atan2(tTY, tTX)
+    lvg.rotate(s.angle)
+    for _, a in ipairs(s.accessories) do
+        a:draw()
     end
-    lvg.setLineWidth(lineW)
-    lvg.polygon("line", r - (lineW / 2), 0, (r - (lineW / 2)) * sa1, (r - (lineW / 2)) * ca1, (-r + (lineW / 2)) * sa2,
-        (r - (lineW / 2)) * ca2, (-r + (lineW / 2)) * sa2, (-r + (lineW / 2)) * ca2, (r - (lineW / 2)) * sa1,
-        (-r + (lineW / 2)) * ca1)
-end
-
-local function drawRectangle(x, y, w, h, c, o, s) -- (x, y, width, height, color, outline width, radius)
-    o = o or lineW
-    s = s or o
-    local l = s - (o / 2)
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.rectangle("fill", x, y, w, h, s, s)
-        lvg.setColor(color.line)
-    end
-    lvg.setLineWidth(o)
-    lvg.rectangle("line", x + (o / 2), y + (o / 2), w - o, h - o, l, l)
-end
-local drawRect = drawRectangle
-
--- Accessories
-local function drawCannon(x, y, r, w, c) -- (x, y, radius, width, color)
-    lvg.push()
-    lvg.translate(x, y)
-    -- Default dimensions
-    r = (r + 185) * size
-    w = (w + 95) * size
-
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.rectangle("fill", 0, -(w / 2), r, w, shapeR, shapeR)
-        lvg.setColor(color.line)
-    end
-    lvg.setLineWidth(lineW)
-    lvg.rectangle("line", lineW / 2, -(w / 2) + (lineW / 2), r - lineW, w - lineW, lineR, lineR)
-    lvg.pop()
-end
-
-local function drawSprayer(x, y, r, w, c) -- (x, y, radius, width, color)
-    lvg.push()
-    lvg.translate(x, y)
-    -- Default dimensions
-    r = (r + 185) * size
-    w = (w + 95) * size
-
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.polygon("fill", 0, -lineW * 2, 0, lineW * 2, r, (w / 2), r, -(w / 2))
-        lvg.setColor(color.line)
-    end
-    lvg.setLineWidth(lineW)
-    lvg.polygon("line", (lineW / 2), -lineW * 1.5, (lineW / 2), lineW * 1.5, r - (lineW / 2), (w / 2) - (lineW / 2),
-        r - (lineW / 2), -(w / 2) + (lineW / 2))
-    lvg.pop()
-end
-
-local function drawLauncher(x, y, r, w, c, i) -- (x, y, radius, width, color, triangle incline)
-    lvg.push()
-    lvg.translate(x, y)
-    -- Default triangle dimensions
-    r = (r + 155) * size
-    w = (w + 165) * size
-    -- Draw triangle
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.polygon("fill", (15 * i * size), 0, r, (w / 2), r, -(w / 2))
-        lvg.setColor(color.line)
-    end
-    lvg.setLineWidth(lineW)
-    lvg.polygon("line", (15 * i * size) + (lineW / 2), 0, r - (lineW / 2), (w / 2) - lineW,
-        r - (lineW / 2), -(w / 2) + lineW)
-    -- Default rectangle dimensions relative to triangle dimensions
-    local rr = 125 * size
-    local rw = w - (70 * size)
-    -- Draw rectangle
-    lvg.setColor(c)
-    if not DEBUG then
-        lvg.rectangle("fill", 0, -(rw / 2), rr, rw, shapeR, shapeR)
-        lvg.setColor(color.line)
-    end
-    lvg.setLineWidth(lineW)
-    lvg.rectangle("line", lineW / 2, -(rw / 2) + (lineW / 2), rr - lineW, rw - lineW, lineR,
-        lineR)
-    lvg.pop()
-end
-
--- Groups
-local function drawCannons(t, x, y, r, n, m, s, c, o, k, w) -- ("type", x, y, radius, total number of cannons, number of cannons side-by-side at each angle, space between side-by-side cannons, color, angular offset, { angular skip values }, width)
-    w = w or 0
-    k = k or {}
-    -- Loop through skip values and deincrement so cannon 1 is the one facing the mouse
-    for h, v in ipairs(k) do
-        v = v == 1 and n + 1 or v
-        k[h] = v - 1
-    end
-    s = t == "gunner" and s - 40 or s
-    s = ((r * 2) + (s * 2)) * size
-    for i = 1, n do
-        if (not hasValue(k, i)) or k == { -1 } then -- I'M CONFUSED. WHY IS "k == { -1 }" HERE?
-            local a = ((i / n) * 360) + (o or 0)    -- Calculate angles based on amount of cannons and add angular offset
+    if s.shape == "circle" then
+        UI.circle(0, 0, s.radius, c, outlineWidth)
+    elseif s.shape == "square" or s.shape == "squareAlt" then
+        if s.shape == "squareAlt" then
             lvg.push()
-            lvg.rotate(degToRad(a))
-            if t == "flank" then
-                lvg.rotate(degToRad(180))
-            end
-            for j = m, 1, -1 do
-                y = centered(j, m, s)
-                if t == "cannon" then
-                    drawCannon(0, y, 0 + x, 0 + w, c)
-                elseif t == "flank" or t == "small" then
-                    drawCannon(0, y, -25 + x, 0 + w, c)
-                elseif t == "sniper" then
-                    drawCannon(0, y, 45 + x, 0 + w, c)
-                elseif t == "destroyer" then
-                    drawCannon(0, y, 0 + x, 30 + w, c)
-                elseif t == "deployer" then
-                    drawCannon(0 + (25 * size), y, 0 + x, 0 + w, c)
-                    drawCannon(0, y, 0 + x, 30 + w, c)
-                elseif t == "machineGun" then
-                    drawSprayer(0, y, 0 + x, 60 + w, c)
-                elseif t == "gunner" then
-                    drawCannon(0, y, -15 + x, -45 + w, c)
-                end
-            end
-            lvg.pop()
-        end
-    end
-end
-
-local function drawLaunchers(t, x, y, r, n, m, s, c, o, k, w) -- ("type", x, y, radius, total number of launchers, number of launchers side-by-side at each angle, space between side-by-side launchers, color, angular offset, { angular skip values }, width)
-    w = w or 0
-    k = k or {}
-    -- Loop through skip values and deincrement so launcher 1 is the one facing the mouse
-    for h, v in ipairs(k) do
-        v = v == 1 and n + 1 or v
-        k[h] = v - 1
-    end
-    s = ((r * 2) + (s * 2)) * size
-    for i = 1, n do
-        if (not hasValue(k, i)) or k == { -1 } then -- I'M CONFUSED. WHY IS "k == { -1 }" HERE?
-            local a = ((i / n) * 360) + (o or 0)    -- Calculate angles based on amount of cannons and add angular offset
-            lvg.push()
-            lvg.rotate(degToRad(a))
-            if t == "flank" then
-                lvg.rotate(degToRad(180))
-            end
-            for j = m, 1, -1 do
-                y = centered(j, m, s)
-                if t == "launcher" then
-                    drawLauncher(0, y, 15 + x, 0 + w, c, 3)
-                elseif t == "flank" or t == "small" then
-                    drawLauncher(0, y, 0 + x, -30 + w, c, 5.5)
-                elseif t == "mega" or t == "medium" then
-                    drawLauncher(0, y, 30 + x, 30 + w, c, 0)
-                end
-            end
-            lvg.pop()
-        end
-    end
-end
-
--- Player Body and Mount
-local function drawMount(t, x, y, r, c, m, a) -- ("type", x, y, radius, color, mount rotation, { { "accessory", "type", x, y, total number of accessories, number of accessories side-by-side at each angle, space between side-by-side accessories, color, angular offset, { angular skip values }, width } })
-    lvg.push()
-    lvg.translate(x * scale, y * scale)
-    a = a or { {} }
-    r = r * 0.55 -- Reduce size
-    -- Loop through table of accessories and create them
-    for _, v in ipairs(a) do
-        if v[1] == "cannon" then
-            local w = -35
-            local s = v[7] - 5
-            if v[2] == "gunner" then
-                s = s + 30
-                w = -15
-            end
-            drawCannons(v[2], -75 + v[3], v[4], r, v[5], v[6], s, v[8], v[9], v[10], w)
-        end
-    end
-    -- Draw mount body
-    m = m or 0
-    lvg.rotate(degToRad(m))
-    if t == "circle" then
-        drawCircle(0, 0, r * size, c)
-    elseif t == "square" then
-        drawSquare(0, 0, r * size, c)
-    end
-    lvg.pop()
-end
-
-local function drawBody(t, x, y, r, c) -- ("type", x, y, radius, color)
-    lvg.push()
-    if t == "circle" then
-        drawCircle(x, y, r * size, c)
-    elseif t == "square" or t == "squareAlt" then
-        if t == "squareAlt" then
             lvg.rotate(degToRad(45))
         end
-        drawSquare(x, y, r * size, c)
-    elseif t == "pentagon" or t == "pentagonAlt" then
-        if t == "pentagonAlt" then
+        UI.rect(0, 0, s.radius * 2, s.radius * 2, c, outlineWidth, shapeRadius, "both")
+        if s.shape == "squareAlt" then
+            lvg.pop()
+        end
+    elseif s.shape == "triangle" or s.shape == "triangleAlt" then
+        if s.shape == "triangleAlt" then
+            lvg.push()
             lvg.rotate(degToRad(180))
         end
-        drawPentagon(x, y, (r + 25) * size, c)
+        UI.ngon("normal", 0, 0, 3, s.radius, c, outlineWidth)
+        if s.shape == "triangleAlt" then
+            lvg.pop()
+        end
+    elseif s.shape == "pentagon" or s.shape == "pentagonAlt" then
+        if s.shape == "pentagonAlt" then
+            lvg.push()
+            lvg.rotate(degToRad(180))
+        end
+        UI.ngon("normal", 0, 0, 5, s.radius, c, outlineWidth)
+        if s.shape == "pentagonAlt" then
+            lvg.pop()
+        end
+    elseif s.shape == "hexagon" or s.shape == "hexagonAlt" then
+        if s.shape == "hexagon" then
+            lvg.push()
+            lvg.rotate(degToRad(30))
+        end
+        UI.ngon("normal", 0, 0, 6, s.radius, c, outlineWidth)
+        if s.shape == "hexagon" then
+            lvg.pop()
+        end
+    elseif s.shape == "octagon" or s.shape == "octagonAlt" then
+        if s.shape == "octagon" then
+            lvg.push()
+            lvg.rotate(degToRad(22.5))
+        end
+        UI.ngon("normal", 0, 0, 8, s.radius, c, outlineWidth)
+        if s.shape == "octagon" then
+            lvg.pop()
+        end
     end
-    lvg.pop()
 end
 
--- Text
-local function drawText(t, f, x, y, w) -- ("text", font, x, y, width)
-    w = w or 500
+-- CLASSES
+
+-- OBJECTS
+-- Bullet
+local Bullet = class("Bullet")
+function Bullet:init(owner, originX, originY, x, y, vx, vy, radius, statsOffset, color)
+    self.owner = owner
+    self.id = newID()
+    self.originX = originX or 0
+    self.originY = originY or 0
+    self.x = x or 0
+    self.y = y or 0
+    self.vx = vx or 0
+    self.vy = vy or 0
+    self.radius = radius / 2
+    self.statsOffset = statsOffset or {
+        health = 0,
+        penetration = 0,
+        damage = 0
+    }
+    self.color = color or UI.color.cyan
+    self.health = 2.7 + self.statsOffset.health
+end
+
+function Bullet:draw()
+    self.x = self.x + self.vx
+    self.y = self.y + self.vy
+    self.vx = self.vx * 0.99
+    self.vy = self.vy * 0.99
     lvg.push()
-    lvg.translate(-w / 2, 0)
-    lvg.setColor(color.black)
-    if not DEBUG then
-        lvg.printf(t, f, x, y - 2, w, "center")     -- Top
-        lvg.printf(t, f, x + 2, y - 2, w, "center") -- Top right
-        lvg.printf(t, f, x + 2, y, w, "center")     -- Right
-        lvg.printf(t, f, x + 2, y + 2, w, "center") -- Bottom right
-        lvg.printf(t, f, x, y + 2, w, "center")     -- Bottom
-        lvg.printf(t, f, x - 2, y + 2, w, "center") -- Bottom left
-        lvg.printf(t, f, x - 2, y, w, "center")     -- Left
-        lvg.printf(t, f, x - 2, y - 2, w, "center") -- Top left
-        lvg.setColor(color.white)
-    end
-    lvg.printf(t, f, x, y, w, "center")
+    lvg.translate(self.originX, self.originY)
+    local fade = getFade(self.health)
+    UI.circle(self.x, self.y, self.radius + (4 * (1 - fade)), self.color, outlineWidth, fade)
     lvg.pop()
 end
 
--- Button
-local buttons = {}
-local Button = class("Button", {
-    text = "",
-    font = uiFontL,
-    x = 0,
-    y = 0,
-    w = 0,
-    h = 0,
-    color = color.darkGray,
-    xOffset = 0,
-    yOffset = 0,
-    hovered = false,
-    pressed = false
-})
-
-function Button:init(t, c, x, y, f)
-    self.text = t or self.text
-    self.font = f or self.font
-    self.x = x or self.x
-    self.y = y or self.y
-    self.width = self.font:getWidth(self.text) + (uiW * 2) + 32
-    self.height = self.font:getHeight(self.text) + (uiW * 2) + 16
-    self.color = c or self.color
-    self.xOffset = 0 or self.xOffset
-    self.yOffset = 0 or self.yOffset
-
-    table.insert(buttons, self)
+function Bullet:delete()
+    self.owner.objects[self.id] = nil
 end
 
-function Button:isInside(x, y)
-    if x > ((self.x + self.xOffset) - (self.width / 2)) and x < (self.x + self.xOffset) + (self.width / 2) and y > (self.y + self.yOffset) - (self.height / 2) and y < (self.y + self.yOffset) + (self.height / 2) then
-        return true
-    end
-    return false
+-- Trap
+local Trap = class("Trap")
+function Trap:init(owner, originX, originY, x, y, vx, vy, radius, statsOffset, color, shape)
+    self.owner = owner
+    self.id = newID()
+    self.originX = originX or 0
+    self.originY = originY or 0
+    self.x = x or 0
+    self.y = y or 0
+    self.vx = vx or 0
+    self.vy = vy or 0
+    self.rotation = 0
+    self.radius = radius / 2
+    self.statsOffset = statsOffset or {
+        health = 0,
+        penetration = 0,
+        damage = 0
+    }
+    self.color = color or UI.color.cyan
+    self.health = 10 + self.statsOffset.health
+    self.shape = shape
 end
 
-function Button:draw(x, y, ox, oy)
-    self.x = x
-    self.y = y
-    self.xOffset = ox
-    self.yOffset = oy
+function Trap:draw()
+    self.x = self.x + self.vx
+    self.y = self.y + self.vy
+    self.rotation = self.rotation + ((self.vx + self.vy) / 2)
+    self.vx = self.vx * 0.95 -- Good
+    self.vy = self.vy * 0.95
     lvg.push()
-    lvg.translate(-self.width / 2, -self.height / 2)
-    drawRect(self.x, self.y, self.width, self.height, self.color, uiW, uiR)
-    if self.hovered then
-        lvg.setColor(color.hover)
-        lvg.rectangle("fill", self.x, self.y, self.width, self.height, uiR, uiR)
+    lvg.translate(self.originX + self.x, self.originY + self.y)
+    local fade = getFade(self.health)
+    lvg.push()
+    lvg.rotate(degToRad(self.rotation))
+    if self.shape == "square" then
+        UI.stargon("small", 0, 0, 4, self.radius + (4 * (1 - fade)), self.color, outlineWidth, fade)
+    else
+        UI.stargon("small", 0, 0, 3, self.radius + (4 * (1 - fade)), self.color, outlineWidth, fade)
     end
     lvg.pop()
-    drawText(self.text, self.font, self.x, (self.y + uiW + 8) - self.height / 2, self.width)
-    lvg.push()
-    lvg.translate(-self.width / 2, -self.height / 2)
-    lvg.setColor(self.pressed and color.shadow or color.highlight)
-    lvg.rectangle("fill", self.x + uiW, self.y + uiW, self.width - (uiW * 2), (self.height - (uiW * 2)) / 2, uiR - uiW,
-        uiR - uiW)
     lvg.pop()
 end
 
--- USER INTERFACE
--- Initialize
-local typeBtn, posBtn, numBtn, parallelBtn, spaceBtn, colorBtn, offsetBtn, addBtn
-local function initUI()
-    typeBtn = Button("Normal Cannon", color.cyan)
+Trap.delete = Bullet.delete
+
+-- ACCESSORIES
+-- Cannon
+local Cannon = class("Cannon")
+function Cannon:init(owner, type, subtype, x, y, angle, lengthOffset, widthOffset, stats, recoil, size)
+    self.owner = owner
+    self.type = type or "normal"
+    self.subtype = subtype or "normal"
+    self.scale = self.owner.scale
+    self.x = (x * self.scale) or 0
+    self.y = (y * self.scale) or 0
+    self.angle = angle or 0
+    self.lengthOffset = lengthOffset or 0
+    self.length = self.owner.radius + ((24 * self.scale) + self.lengthOffset)
+    self.widthOffset = widthOffset or 0
+    self.width = self.owner.radius + ((-2 * self.scale) + self.widthOffset)
+    self.recoil = recoil
+    self.stats = stats
+    self.reloadTime = 0
+    self.color = UI.color.darkGray
+    self.size = self.width + ((size or 0) * self.scale)
+    if self.type == "machineGun" then
+        self.size = self.owner.radius + ((-1) * self.scale)
+    end
+    -- if self.subtype ~= "normal" then
+    --     if self.subtype == "heatseeker" then
+    --         self.color = UI.color.red
+    --     end
+    -- end
+end
+
+function Cannon:draw()
+    lvg.push()
+    lvg.rotate(degToRad(self.angle))
+    local recoil = getRecoil(self.stats.reload, self.reloadTime)
+    if self.type == "machineGun" then
+        UI.trapeziod(self.x, self.y, self.length - recoil, 12, self.width, self.color, outlineWidth)
+    else
+        UI.rect(self.x, self.y, self.length - recoil, self.width, self.color, outlineWidth, shapeRadius, "vertical")
+    end
+    lvg.pop()
+end
+
+function Cannon:fire(p, px, py, pa)
+    fire(Bullet, p, px, py, pa, self)
+end
+
+-- Launcher
+local Launcher = class("Launcher")
+function Launcher:init(owner, type, subtype, x, y, angle, lengthOffset, widthOffset, stats, recoil, size, shape)
+    self.owner = owner
+    self.type = type or "normal"
+    self.subtype = subtype or "normal"
+    self.scale = self.owner.scale
+    self.x = (x * self.scale) or 0
+    self.y = (y * self.scale) or 0
+    self.angle = angle or 0
+    self.lengthOffset = lengthOffset or 0
+    self.length = self.owner.radius + ((20 * self.scale) + self.lengthOffset)
+    self.widthOffset = widthOffset or 0
+    self.width = self.owner.radius + ((-2 * self.scale) + self.widthOffset)
+    self.recoil = recoil
+    self.stats = stats
+    self.reloadTime = 0
+    self.color = UI.color.darkGray
+    self.size = self.width + ((size or 0) * self.scale)
+    self.shape = shape
+end
+
+function Launcher:draw()
+    lvg.push()
+    lvg.rotate(degToRad(self.angle))
+    local recoil = getRecoil(self.stats.reload, self.reloadTime)
+    local offset = (8 + (self.lengthOffset / 2)) * self.scale
+    local w = 16
+    if self.type == "builder" then
+        offset = offset + (8 * self.scale)
+        w = 8
+    end
+    UI.trapeziod(self.x + self.owner.radius + offset - outlineWidth - recoil, self.y,
+        self.length - self.owner.radius - (offset / 2), self.width / 2, self.width + w, self.color, outlineWidth)
+    UI.rect(self.x, self.y, self.owner.radius + offset - recoil, self.width, self.color, outlineWidth, shapeRadius,
+        "vertical")
+    lvg.pop()
+end
+
+function Launcher:fire(p, px, py, pa)
+    fire(Trap, p, px, py, pa, self)
+end
+
+-- MOUNT
+local Mount = class("Mount")
+function Mount:init(owner, shape, x, y, targetX, targetY)
+    self.owner = owner
+    self.shape = shape
+    self.scale = self.owner.scale
+    self.x = (x * self.scale) or 0
+    self.y = (y * self.scale) or 0
+    self.targetX = targetX or nil
+    self.targetY = targetY or nil
+    self.angle = 0
+    self.radius = self.owner.radius * 0.52
+    self.color = self.owner.color
+    self.appearance = UI.color.darkGray
+    self.stats = {
+        speed = self.owner.stats.speed - 1,
+        health = self.owner.stats.health,
+        penetration = self.owner.stats.penetration * 2,
+        damage = self.owner.stats.damage,
+        reload = self.owner.stats.reload,
+        spread = self.owner.stats.spread
+    }
+    self.accessories = {}
+    self.objects = {}
+
+    if DEBUG then
+        self.appearance = self.color
+    end
+end
+
+function Mount:draw()
+    lvg.push()
+    drawBody(self.appearance, self)
+    lvg.pop()
+end
+
+-- PLAYER
+local players = {}
+local Player = class("Player")
+function Player:init(name, level, color, shape, x, y)
+    self.name = name or "An Unnamed Player"
+    self.color = color or UI.color.cyan
+    self.shape = shape or "circle"
+    self.x = x or 0
+    self.y = y or 0
+    self.targetX = 0
+    self.targetY = 0
+    self.level = level or 1
+    self.scale = 1 + ((self.level - 1) / 100)
+    self.radius = 30 * self.scale
+    self.stats = {
+        healthRegen = 1,
+        maxHealth = 1,
+        bodyDamage = 1,
+        speed = 8,
+        health = 0,
+        penetration = 1,
+        damage = 1,
+        reload = 0.6,
+        spread = 15,
+        movementSpeed = 1
+    }
+    self.autoFire = false
+    self.autoSpin = false
+    self.angle = 0
+    self.mounts = {}
+    self.accessories = {}
+    self.objects = {}
+
+    table.insert(players, self)
+end
+
+function Player:draw()
+    lvg.push()
+    drawBody(self.color, self)
+    for _, m in ipairs(self.mounts) do
+        m:draw()
+    end
+    lvg.pop()
+end
+
+function Player:drawLabel()
+    lvg.push()
+    lvg.translate(self.x, self.y - (self.radius * 2))
+    UI.text(self.name)
+    lvg.pop()
+end
+
+function Player:addAccessory(type, subtype, subsubtype, x, y, lengthOffset, widthOffset, amount, parallel, space,
+                             angularOffset, skips, caller, reference)
+    caller = caller or self
+    reference = reference or self
+    local Accessory = Cannon
+    local stats = {
+        speed = caller.stats.speed,
+        health = caller.stats.health,
+        penetration = caller.stats.penetration,
+        damage = caller.stats.damage,
+        reload = caller.stats.reload,
+        spread = caller.stats.spread
+    }
+    local recoil = 2
+    local size = 0
+    lengthOffset = lengthOffset * 8
+    widthOffset = widthOffset * 2
+    space = ((reference.radius * 2) + (space * 2 * reference.scale)) / reference.scale
+    for i, v in ipairs(skips) do
+        skips[i] = v == 0 and amount or v
+    end
+
+    local tmpStats = copy(stats)
+    local tmpLengthOffset = lengthOffset
+    local tmpWidthOffset = widthOffset
+    local tmpSpace = space
+    local tmpRecoil = recoil
+    local tmpSize = size
+
+    local shape = "triangle"
+    for i = 1, amount do
+        if not hasValue(skips, i) then
+            local a = ((i / amount) * 360) + (angularOffset or 0)
+            for j = parallel, 1, -1 do
+                if type == "cannon" then
+                    if subtype ~= "normal" then
+                        if subtype == "sniper" then
+                            tmpLengthOffset = lengthOffset + 8 -- Exact
+                            tmpStats.reload = stats.reload + 0.6
+                            tmpStats.speed = stats.speed + 4
+                            tmpStats.damage = stats.damage + 5
+                            tmpStats.spread = stats.spread - 5
+                        elseif subtype == "destroyer" then
+                            tmpWidthOffset = widthOffset + 16            -- Exact
+                            tmpSpace = space + 32                        -- Exact
+                            tmpStats.penetration = stats.penetration * 2 -- Exact
+                            tmpStats.damage = stats.damage * 30 / 7      -- Exact
+                            tmpStats.reload = stats.reload * 8           -- Exact
+                            tmpStats.speed = stats.speed / 1.5           -- Exact
+                            tmpRecoil = recoil * 15                      -- Exact
+                        elseif subtype == "machineGun" then
+                            tmpWidthOffset = widthOffset + 16            -- Exact
+                            tmpStats.spread = stats.spread + 15
+                            tmpStats.reload = stats.reload / 2           -- Exact
+                        elseif subtype == "gunner" then
+                            tmpLengthOffset = lengthOffset - 4           -- Exact
+                            tmpWidthOffset = widthOffset - 8             -- Exact
+                            tmpSpace = space - 20                        -- Exact
+                            tmpStats.damage = stats.damage - 5
+                            tmpStats.penetration = stats.penetration - 5
+                            tmpStats.speed = stats.speed + 5
+                            tmpStats.reload = stats.reload + 0.3
+                            tmpStats.spread = stats.spread - 10
+                            tmpRecoil = recoil / 2
+                        end
+                    end
+                elseif type == "launcher" then
+                    Accessory = Launcher
+                    tmpStats.penetration = stats.penetration * 2
+                    -- Inherited from Sniper
+                    tmpStats.reload = stats.reload + 0.6
+                    tmpStats.speed = stats.speed + 4
+                    tmpStats.damage = stats.damage + 5
+                    tmpStats.spread = stats.spread - 5
+                    if subtype ~= "normal" then
+                        if subtype == "mega" or subtype == "medium" then
+                            tmpLengthOffset = lengthOffset + 8      -- Exact
+                            tmpWidthOffset = widthOffset + 16       -- Exact
+                            if subtype == "mega" then
+                                tmpSize = size + 8                  -- Exact
+                                tmpStats.health = stats.health + 14 -- Exact
+                                tmpStats.penetration = stats.penetration + 2
+                                tmpStats.damage = stats.damage + 2
+                                tmpStats.speed = stats.speed - 2
+                            elseif subtype == "medium" then
+                                tmpSize = size - 4                 -- Exact
+                                tmpStats.health = stats.health + 7 -- Exact
+                                tmpStats.penetration = stats.penetration + 1
+                                tmpStats.damage = stats.damage + 1
+                                tmpStats.speed = stats.speed - 0.2
+                            end
+                        elseif subtype == "small" then
+                            tmpWidthOffset = widthOffset - 8   -- Exact
+                            tmpStats.health = stats.health - 5 -- Exact
+                            tmpStats.penetration = stats.penetration - 1
+                            tmpStats.damage = stats.damage - 1
+                            tmpStats.speed = stats.speed + 8
+                        elseif subtype == "builder" then
+                            shape = "square"
+                            tmpStats.health = stats.health * 1.5
+                            tmpStats.penetration = stats.penetration + 1
+                            tmpStats.damage = stats.damage + 1
+                        end
+                    end
+                end
+                y = centered(j, parallel, tmpSpace)
+                table.insert(caller.accessories,
+                    Accessory(caller, subtype, subsubtype, x, y, a, tmpLengthOffset, tmpWidthOffset, tmpStats,
+                        tmpRecoil, tmpSize, shape))
+            end
+        end
+    end
+end
+
+Mount.addAccessory = Player.addAccessory
+function Player:addMount(shape, x, y, accessories)
+    accessories = accessories or {}
+    local mount = Mount(self, shape, x, y)
+    for _, a in ipairs(accessories) do
+        local w = 2
+        local l = -1
+        local g = -15
+        if a[1] == "cannon" then
+            if a[2] == "gunner" then
+                w = w + 1
+                g = g + 8
+            end
+        end
+        mount:addAccessory(a[1], a[2], a[3], a[4], a[5], a[6] + (l * self.scale), a[7] + w, a[8], a[9], a[10] + g, a[11],
+            a[12], mount, mount.owner, 0)
+    end
+
+    table.insert(self.mounts, mount)
+end
+
+-- HUD
+local HUD = class("HUD")
+function HUD:init()
+    local typeBtn = UI.Button("Normal Cannon", UI.color.cyan)
     function typeBtn:click()
         print("1 CLICKED")
     end
 
-    posBtn = Button("(0, 0)", color.green)
+    local posBtn = UI.Button("(0, 0)", UI.color.green)
     function posBtn:click()
         print("2 CLICKED")
     end
 
-    numBtn = Button("1", color.red)
+    local numBtn = UI.Button("1", UI.color.red)
     function numBtn:click()
         print("3 CLICKED")
     end
 
-    parallelBtn = Button("1", color.yellow)
+    local parallelBtn = UI.Button("1", UI.color.yellow)
     function parallelBtn:click()
         print("4 CLICKED")
     end
 
-    spaceBtn = Button("0", color.indigo)
+    local spaceBtn = UI.Button("0", UI.color.indigo)
     function spaceBtn:click()
         print("5 CLICKED")
     end
 
-    colorBtn = Button("Gray", color.purple)
+    local colorBtn = UI.Button("Gray", UI.color.purple)
     function colorBtn:click()
         print("6 CLICKED")
     end
 
-    offsetBtn = Button("0", color.orange)
+    local offsetBtn = UI.Button("0", UI.color.orange)
     function offsetBtn:click()
         print("7 CLICKED")
     end
 
-    addBtn = Button("+")
+    local addBtn = UI.Button("+")
     function addBtn:click()
         print("8 CLICKED")
     end
 end
 
--- Draw
-local uiTotalW = windowW - 32
-local uiTopColumns = 8
-local uiTopX = windowW / 2
-local uiTopY = 64
-local uiLabelO = -50
-local function drawUI()
-    lvg.push()
-    if DEBUG then
-        lvg.setColor(color.line)
-        lvg.setLineWidth(16 * 2)
-        lvg.rectangle("line", 0, 0, windowW, windowH)
+function HUD:draw()
+    for i, b in ipairs(UI.buttons) do
+        b:draw()
     end
-    lvg.translate(uiTopX, uiTopY)
-    for i, b in ipairs(buttons) do
-        b:draw(centered(i, uiTopColumns, uiTotalW), 0, uiTopX, uiTopY)
+end
+
+-- UPDATE FUNCTIONS
+local function drawObjects(p)
+    for _, o in pairs(p) do
+        o:draw()
     end
-    drawText("Type", uiFont, centered(1, uiTopColumns, uiTotalW), uiLabelO, uiTotalW / uiTopColumns)
-    drawText("Position", uiFont, centered(2, uiTopColumns, uiTotalW), uiLabelO, uiTotalW / uiTopColumns)
-    drawText("Amount", uiFont, centered(3, uiTopColumns, uiTotalW), uiLabelO, uiTotalW / uiTopColumns)
-    drawText("Amount Parallel", uiFont, centered(4, uiTopColumns, uiTotalW), uiLabelO, uiTotalW / uiTopColumns)
-    drawText("Parallel Spacing", uiFont, centered(5, uiTopColumns, uiTotalW), uiLabelO, uiTotalW / uiTopColumns)
-    drawText("Color", uiFont, centered(6, uiTopColumns, uiTotalW), uiLabelO, uiTotalW / uiTopColumns)
-    drawText("Offset", uiFont, centered(7, uiTopColumns, uiTotalW), uiLabelO, uiTotalW / uiTopColumns)
-    lvg.pop()
+end
+
+-- GARBAGE COLLECT FUNCTIONS
+-- Objects
+-- Garbage collect objects
+local function gcObjects(dt, p)
+    for _, o in pairs(p) do
+        if o:instanceOf(Bullet) or o:instanceOf(Trap) then
+            o.health = o.health - dt
+            if o.health <= -fadeStart then
+                o:delete()
+            end
+        end
+    end
 end
 
 -- MAIN
 function love.load()
-    lvg.setBackgroundColor(color.gray)
-    initUI()
+    lvg.setBackgroundColor(UI.color.gray)
+
+    HUD:init()
+
+    local player1 = Player()
+    player1.color = UI.color.gray
+    player1.autoFire = true
+    player1.autoSpin = true
+    player1:addAccessory("launcher", "builder", "normal", 0, 0, 0, 0, 3, 1, 0, 0, {})
+    player1:addAccessory("launcher", "normal", "normal", 0, 0, 0, 0, 3, 1, 0, 60, {})
+    player1:addMount("circle", 0, 0, {
+        { "cannon", "machineGun", "normal", 0, 0, -1, 8, 1, 1, 0, 0, {} },
+        { "cannon", "machineGun", "normal", 0, 0, 0,  0, 1, 1, 0, 0, {} }
+    })
+
+    local player2 = Player("Administrator", 45, UI.color.indigo, "triangleAlt", 200, 200)
+    player2:addAccessory("cannon", "normal", "normal", 0, 0, 1, 0, 1, 1, 0, 0, {})
+    player2:addAccessory("cannon", "machineGun", "normal", 0, 0, -2, 24, 1, 1, 0, 0, {})
+    player2:addAccessory("cannon", "machineGun", "normal", 0, 0, -1, 12, 1, 1, 0, 0, {})
+    player2:addAccessory("cannon", "machineGun", "normal", 0, 0, 0, 0, 1, 1, 0, 0, {})
+    player2:addMount("square", 0, 16, {
+        { "cannon", "gunner", "normal", 0, 0, 0, 0, 1, 2, 0, 0, {} }
+    })
+    player2:addMount("squareAlt", 0, -16, {
+        { "cannon", "machineGun", "normal", 0, 0, 0, 0, 1, 1, 0, 0, {} }
+    })
+
+    local player3 = Player("Jack Kelly", 30, UI.color.green, "circle", 200, -200)
+    -- player3.autoFire = true
+    player3.autoSpin = true
+    player3:addAccessory("cannon", "normal", "normal", 0, 0, -1, 0, 1, 2, 0, 0, {})
+    player3:addAccessory("cannon", "normal", "normal", 0, 0, 0, 0, 1, 1, 0, 0, {})
+    player3:addMount("circle", 0, 0, {
+        { "cannon", "normal", "normal", 0, 0, 0, 0, 1, 1, 0, 0, {} }
+    })
+
+    local player4 = Player("Les", 45, UI.color.red, "hexagon", -200, -200)
+    player4:addAccessory("cannon", "normal", "normal", 0, 0, 0, 0, 6, 1, 0, 0, {})
+    player4:addMount("pentagon", 0, 0)
+
+    local player5 = Player("Developer", 60, UI.color.indigo, "pentagon", -200, 200)
+    player5:addAccessory("cannon", "gunner", "normal", 0, 0, -2, 0, 1, 3, 8, 0, {})
+    player5:addAccessory("cannon", "gunner", "normal", 0, 0, -1, 0, 1, 2, 0, 0, {})
+    player5:addAccessory("cannon", "gunner", "normal", 0, 0, 0, 0, 1, 1, 0, 0, {})
+    player5:addMount("circle", 0, 0, {
+        { "cannon", "normal", "normal", 0, 0, 0, 0, 1, 2, 0, 0, {} }
+    })
+
+    local player6 = Player("Spot", 15, UI.color.purple, "circle", 400, 0)
+    player6.autoSpin = true
+    player6:addAccessory("launcher", "builder", "normal", 0, 0, 0, 18, 1, 1, 0, 0, {})
+    player6:addMount("square", 0, 0)
+
+    local player7 = Player("Jerry Spinelli", 1, UI.color.cyan, "square", -400, 0)
+    -- player7.autoFire = true
+    player7:addAccessory("cannon", "normal", "normal", 0, 0, 1, 0, 1, 1, 0, 0, {})
+    player7:addAccessory("cannon", "machineGun", "normal", 0, 0, 0, 0, 1, 1, 0, 0, {})
+    player7:addMount("circle", 0, 0)
+
+    local player8 = Player("Arena Closer", 150, UI.color.yellow, "circle", 0, 400)
+    player8:addAccessory("cannon", "destroyer", "normal", 0, 0, -1, -8, 1, 1, 0, 0, {})
 end
 
 function love.mousemoved(x, y)
-    local overBtn = false
-    for _, b in ipairs(buttons) do
-        if b:isInside(x, y) then
-            overBtn = true
-            if not b.pressed then
-                b.hovered = true
-            end
-        end
-        if not b:isInside(x, y) then
-            b.hovered = false
-        end
-    end
-    lvm.setCursor(lvm.getSystemCursor(overBtn == true and "hand" or "arrow"))
+    UI.mousemoved(x, y)
 end
 
 function love.mousepressed(x, y)
-    for _, b in ipairs(buttons) do
-        if b:isInside(x, y) then
-            b.pressed = true
-            b.hovered = false
-        end
-    end
+
 end
 
 function love.mousereleased(x, y)
-    for _, b in ipairs(buttons) do
-        if b:isInside(x, y) then
-            b:click()
-            b.hovered = true
-        end
-        b.pressed = false
-    end
+
+end
+
+function love.keypressed()
+
 end
 
 function love.resize()
     windowW, windowH = lvg.getDimensions()
-    uiTotalW = windowW - 32
-    uiTopX = windowW / 2
 end
 
+local autoRotation = 0
 function love.update(dt)
-
+    for i, p in ipairs(players) do
+        -- Check for AutoSpin
+        if p.autoSpin then
+            p.targetX, p.targetY = rotateBy(p.radius * 3, 0, autoRotation)
+            p.targetX = p.targetX + (windowW / 2) + p.x
+            p.targetY = p.targetY + (windowH / 2) + p.y
+        else
+            p.targetX, p.targetY = lvm.getPosition()
+        end
+        -- Fire player accessories
+        for _, a in ipairs(p.accessories) do
+            if a.reloadTime <= 0 and (((lvm.isDown(1) or lvk.isDown("space")) and not UI.mouseoverbutton) or p.autoFire) then
+                a:fire(p, p.x, p.y, p.angle)
+            end
+            a.reloadTime = a.reloadTime - dt
+        end
+        -- Fire mount accessories
+        for _, m in ipairs(p.mounts) do
+            if i == 1 or i == 5 then
+                m.targetX, m.targetY = rotateBy(150, 0, -autoRotation)
+                m.targetX = m.targetX + (windowW / 2)
+                m.targetY = m.targetY + (windowH / 2)
+            end
+            for _, a in ipairs(m.accessories) do
+                if a.reloadTime <= 0 and (m.targetX ~= nil and m.targetY ~= nil) then
+                    local targetOffsetX, targetOffsetY = rotateBy(m.x, m.y, p.angle)
+                    a:fire(m, p.x + targetOffsetX, p.y + targetOffsetY, p.angle + m.angle)
+                end
+                a.reloadTime = a.reloadTime - dt
+            end
+        end
+        -- Garbage collect player dead objects
+        gcObjects(dt, p.objects)
+        -- Garbage collect mount dead objects
+        for _, m in ipairs(p.mounts) do
+            gcObjects(dt, m.objects)
+        end
+    end
+    autoRotation = autoRotation + 0.01
 end
 
-local cRotation = 0
 function love.draw()
-    -- BOUNDING BOX
+    -- GAME AREA
     lvg.push()
     lvg.translate(windowW / 2, windowH / 2)
-    lvg.setColor(color.lightGray)
-    lvg.rectangle("fill", -800, -500, 1600, 1000)
+    lvg.setColor(UI.color.lightGray)
+    lvg.rectangle("fill", -400, -400, 800, 800)
     lvg.pop()
 
-    -- POLYGONS
+    -- PLAYERS
     lvg.push()
-    lvg.translate((windowW / 2) + 100, (windowH / 2) + 250)
-    lvg.rotate(degToRad(-cRotation))
-    drawCircle(50 * scale, 0, 30 * scale, color.white)
-    lvg.pop()
-    lvg.push()
-    lvg.translate((windowW / 2) - 100, (windowH / 2) + 250)
-    lvg.rotate(degToRad(cRotation / 2))
-    drawSquare(0, 50 * scale, 60 * scale, color.yellow)
-    lvg.pop()
-    lvg.push()
-    lvg.translate((windowW / 2) + 100, (windowH / 2) - 250)
-    lvg.rotate(degToRad(cRotation))
-    drawPentagon(0, 50 * scale, 90 * scale, color.indigo)
-    lvg.pop()
-    lvg.push()
-    lvg.translate((windowW / 2) + 200, (windowH / 2) - 375)
-    lvg.rotate(degToRad(-cRotation / 2))
-    drawPentagon(50 * scale, 0, 90 * scale, color.green)
-    lvg.pop()
-    cRotation = cRotation + 0.75
-
-    local mX, mY = lvm.getPosition()
-    -- TANK 1
-    lvg.push()
-    lvg.translate((windowW / 2) - 300, windowH / 2)
-    local mTX, mTY = lvg.inverseTransformPoint(mX, mY)
-    lvg.rotate(math.atan2(mTY, mTX))
-
-    -- Accessory(s)
-    -- All
-    drawLaunchers("mega", 0, 0, radius, 1, 1, 0, color.darkGray, 320)
-    drawLaunchers("launcher", 0, 0, radius, 1, 1, 0, color.darkGray, 280)
-    drawCannons("gunner", 0, 0, radius, 1, 2, 0, color.darkGray, 240)
-    drawCannons("machineGun", 0, 0, radius, 1, 1, 0, color.darkGray, 200)
-    drawCannons("deployer", 0, 0, radius, 1, 1, 0, color.darkGray, 120)
-    drawCannons("destroyer", 0, 0, radius, 1, 1, 0, color.darkGray, 80)
-    drawCannons("sniper", 0, 0, radius, 1, 1, 0, color.darkGray, 40)
-    drawCannons("flank", 0, 0, radius, 1, 1, 0, color.darkGray, -20)
-    drawCannons("cannon", 0, 0, radius, 1, 1, 0, color.darkGray)
-
-    -- Machine Gunner
-    -- drawCannons("machineGun", -75, 0, radius, 1, 1, 0, color.darkGray, 0, {}, 120)
-    -- drawCannons("machineGun", -45, 0, radius, 1, 1, 0, color.darkGray, 0, {}, 60)
-    -- drawCannons("machineGun", -15, 0, radius, 1, 1, 0, color.darkGray)
-
-    -- Body
-    drawBody("circle", 0, 0, radius, color.cyan)
-    drawMount("circle", 0, 0, radius, color.darkGray, 0, { { "cannon", "cannon", 0, 0, 1, 1, 0, color.darkGray } })
+    lvg.translate(windowW / 2, windowH / 2)
+    for _, p in ipairs(players) do
+        -- Draw player objects
+        drawObjects(p.objects)
+        -- Draw mount objects
+        for _, m in ipairs(p.mounts) do
+            drawObjects(m.objects)
+            if DEBUG then
+                UI.circle(m.targetX - (windowW / 2), m.targetY - (windowH / 2), 10, UI.color.brown, outlineWidth)
+            end
+        end
+    end
+    -- Draw players
+    for _, p in ipairs(players) do
+        p:draw()
+        if DEBUG then
+            lvg.push()
+            lvg.translate(-windowW / 2, -windowH / 2)
+            UI.circle(p.targetX, p.targetY, 15, p.color, outlineWidth)
+            lvg.pop()
+        end
+    end
+    if showNames then
+        for _, p in ipairs(players) do
+            p:drawLabel()
+        end
+    end
     lvg.pop()
 
-    -- TANK 2
-    lvg.push()
-    lvg.translate((windowW / 2) + 300, windowH / 2)
-    mTX, mTY = lvg.inverseTransformPoint(mX, mY)
-    lvg.rotate(math.atan2(mTY, mTX))
-
-    -- Penta-Shot
-    drawCannons("small", -25, 0, radius, 16, 1, 0, color.darkGray, 0,
-        { 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16 })
-    drawCannons("small", 0, 0, radius, 16, 1, 0, color.darkGray, 0,
-        { 1, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 })
-    drawCannons("cannon", 0, 0, radius, 1, 1, 0, color.darkGray)
-
-    -- Body
-    drawBody("pentagon", 0, 0, radius, color.purple)
-    drawMount("square", 0, 0, radius, color.darkGray, 45,
-        { { "cannon", "cannon", 0, 0, 1, 2, 0, color.darkGray } })
-    lvg.pop()
-
-    drawUI()
+    -- Draw HUD
+    HUD:draw()
 end
