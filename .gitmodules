@@ -1,3 +1,12 @@
 [submodule "GVG-Lua"]
 	path = GVG-Lua
 	url = https://github.com/Labrium/GVG-Lua.git
+[submodule "30log"]
+	path = 30log
+	url = https://github.com/Yonaba/30log.git
+[submodule "uuid"]
+	path = uuid
+	url = https://github.com/Tieske/uuid.git
+[submodule "dkjson"]
+	path = dkjson
+	url = https://github.com/LuaDist/dkjson.git
