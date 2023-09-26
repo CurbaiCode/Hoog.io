@@ -1,242 +1,230 @@
 --[[
- -- UI.lua
- -- DPEio Builder 0.2
+ --	UI.lua
+ -- Hoog.io 0.3
  --
  -- Copyright (c) 2023 Curbai. All rights reserved.
 --]]
 local class = require("30log")
+local utils = require("utils")
+
 local UI = {}
-local lvg = love.graphics
-local lvm = love.mouse
+
+-- SHORTCUTS
+local lvf = love.filesystem
 
 -- CONSTANTS
-UI.DEBUG = false
-local outlineWidth = 4
-local outlineRadius = 12
-UI.font = lvg.newFont("Now-Bold.otf", 18) -- Font
-UI.fontLarge = lvg.newFont("Now-Bold.otf", 22)
+DarkMode = false
+local minimapScale = 18
+local boardMax = 4
 
--- COLORS
-function UI.newColor(r, g, b, a)
+-- FUNCTIONS
+local function newColor(r, g, b, a)
     return r / 255, g / 255, b / 255, (a or 1)
 end
 
-local function multiplyAlpha(c, a)
-    return { c[1], c[2], c[3], c[4] * a }
-end
-
-UI.color = {
-    red = { UI.newColor(255, 59, 48) },
-    orange = { UI.newColor(255, 149, 0) },
-    yellow = { UI.newColor(255, 204, 0) },
-    green = { UI.newColor(40, 205, 65) },
-    mint = { UI.newColor(0, 199, 190) },
-    teal = { UI.newColor(89, 173, 196) },
-    cyan = { UI.newColor(85, 190, 240) },
-    blue = { UI.newColor(0, 122, 255) },
-    indigo = { UI.newColor(88, 86, 214) },
-    purple = { UI.newColor(175, 82, 222) },
-    pink = { UI.newColor(255, 45, 85) },
-    brown = { UI.newColor(162, 132, 94) },
-    black = { UI.newColor(28, 28, 30) },
-    white = { UI.newColor(242, 242, 247) },
-    darkGray = { UI.newColor(142, 142, 147) },
-    gray = { UI.newColor(174, 174, 178) },
-    lightGray = { UI.newColor(199, 199, 204) },
-    line = { UI.newColor(0, 0, 0, 0.5) },
-    highlight = { UI.newColor(255, 255, 255, 0.25) },
-    shadow = { UI.newColor(0, 0, 0, 0.33) },
-    hover = { UI.newColor(255, 255, 255, 0.1) }
-}
-
--- DRAWING FUCNTIONS
--- Text
-function UI.text(t, f, x, y, w) -- ("text", size, x, y, width)
-    x, y = (x or 0), (y or 0)
-    w = w or 500
-    f = f or UI.font
-    local p = f == UI.font and 2 or 3
-    y = y - (f:getHeight() / 2)
-    lvg.push()
-    lvg.translate(-w / 2, 0)
-    lvg.setColor(UI.color.black)
-    if not UI.DEBUG then
-        lvg.printf(t, f, x, y - p, w, "center")     -- Top
-        lvg.printf(t, f, x + p, y - p, w, "center") -- Top right
-        lvg.printf(t, f, x + p, y, w, "center")     -- Right
-        lvg.printf(t, f, x + p, y + p, w, "center") -- Bottom right
-        lvg.printf(t, f, x, y + p, w, "center")     -- Bottom
-        lvg.printf(t, f, x - p, y + p, w, "center") -- Bottom left
-        lvg.printf(t, f, x - p, y, w, "center")     -- Left
-        lvg.printf(t, f, x - p, y - p, w, "center") -- Top left
-        lvg.setColor(UI.color.white)
-    end
-    lvg.printf(t, f, x, y, w, "center")
-    lvg.pop()
-end
-
--- Polygons
-function UI.circle(x, y, r, c, w, t) -- (x, y, radius, color, outline width, transparency)
-    t = t or 1
-    lvg.setColor(multiplyAlpha(c, t))
-    if not UI.DEBUG then
-        lvg.circle("fill", x, y, r)
-        lvg.setColor(multiplyAlpha(UI.color.line, t))
-    end
-    lvg.setLineWidth(w)
-    lvg.circle("line", x, y, r - (w / 2))
-end
-
-function UI.rectangle(x, y, w, h, c, o, s, a, t, b) -- (x, y, width, height, color, outline width, outline radius, alignment, transparency, border)
-    b = (b == nil) and true or b
-    t = t or 1
-    a = a or "none"
-    if a == "vertical" or a == "both" then
-        y = y - (h / 2)
-    end
-    if a == "horizontal" or a == "both" then
-        x = x - (w / 2)
-    end
-    local l = s - (o / 2)
-    lvg.setColor(multiplyAlpha(c, t))
-    if not UI.DEBUG then
-        lvg.rectangle("fill", x, y, w, h, s, s)
-        lvg.setColor(multiplyAlpha(UI.color.line, t))
-    end
-    if b then
-        lvg.setLineWidth(o)
-        lvg.rectangle("line", x + (o / 2), y + (o / 2), w - o, h - o, l, l)
+local function abbreviate(n)
+    if n >= math.pow(10, 9) then
+        return string.format("%.1fb", n / math.pow(10, 9))
+    elseif n >= math.pow(10, 6) then
+        return string.format("%.1fm", n / math.pow(10, 6))
+    elseif n >= math.pow(10, 3) then
+        return string.format("%.1fk", n / math.pow(10, 3))
+    else
+        return tostring(n)
     end
 end
 
-UI.rect = UI.rectangle
+-- COLORS
+do
+    local colors = {
+        red = DarkMode and { newColor(255, 69, 58) } or { newColor(255, 59, 48) },
+        orange = DarkMode and { newColor(255, 159, 10) } or { newColor(255, 149, 0) },
+        yellow = DarkMode and { newColor(255, 214, 10) } or { newColor(255, 204, 0) },
+        green = DarkMode and { newColor(50, 215, 75) } or { newColor(40, 205, 65) },
+        mint = DarkMode and { newColor(102, 212, 207) } or { newColor(0, 199, 190) },
+        teal = DarkMode and { newColor(106, 196, 220) } or { newColor(89, 173, 196) },
+        cyan = DarkMode and { newColor(90, 200, 245) } or { newColor(85, 190, 240) },
+        blue = DarkMode and { newColor(10, 132, 255) } or { newColor(0, 122, 255) },
+        indigo = DarkMode and { newColor(94, 92, 230) } or { newColor(88, 86, 214) },
+        purple = DarkMode and { newColor(191, 90, 242) } or { newColor(175, 82, 222) },
+        pink = DarkMode and { newColor(255, 55, 95) } or { newColor(255, 45, 85) },
+        brown = DarkMode and { newColor(172, 142, 104) } or { newColor(162, 132, 94) },
+        black = { newColor(58, 58, 60) },
+        white = { newColor(242, 242, 247) },
+        darkerGray = { newColor(72, 72, 74) },
+        darkGray = { newColor(142, 142, 147) },
+        gray = DarkMode and { newColor(58, 58, 60) } or { newColor(174, 174, 178) },
+        lightGray = DarkMode and { newColor(72, 72, 74) } or { newColor(199, 199, 204) },
+        minimap = DarkMode and { newColor(99, 99, 102, 0.5) } or { newColor(242, 242, 247, 0.5) },
+        grid = DarkMode and { newColor(0, 0, 0, 0.16) } or { newColor(0, 0, 0, 0.12) }
+        -- highlight = { newColor(242, 242, 247, 0.25) },
+        -- shadow = { newColor(0, 0, 0, 0.33) },
+        -- hover = { newColor(242, 242, 247, 0.1) }
+    }
 
-function UI.trapeziod(x, y, w, h1, h2, c, o, t) -- (x, y, width, width, start height, end height, color, outlineWidth, transparency)
-    t = t or 1
-    lvg.setColor(multiplyAlpha(c, t))
-    if not UI.DEBUG then
-        lvg.polygon("fill", x, y - h1, x, y + h1, x + w, y + (h2 / 2), x + w, y + -(h2 / 2))
-        lvg.setColor(multiplyAlpha(UI.color.line, t))
-    end
-    lvg.setLineWidth(o)
-    lvg.polygon("line", x + (o / 2), y - (h1 - (o / 2)), x + (o / 2), y + (h1 - (o / 2)), x + w - (o / 2),
-        y + (h2 / 2) - (o / 2), x + w - (o / 2), y + -(h2 / 2) + (o / 2))
-end
-
-function UI.ngon(s, x, y, n, r, c, o, t) -- (x, y, vertices, radius, color, outline width, transparency)
-    t = t or 1
-    local cr = s == "small" and r + (o / 2) or r / math.cos(math.pi / n)
-    local v = {}
-    for i = 0, n - 1 do
-        local a = (i / n) * math.pi * 2
-        table.insert(v, cr * math.cos(a) + x)
-        table.insert(v, cr * math.sin(a) + y)
-    end
-    lvg.setColor(multiplyAlpha(c, t))
-    if not UI.DEBUG then
-        lvg.polygon("fill", v)
-        lvg.setColor(multiplyAlpha(UI.color.line, t))
-    end
-    lvg.setLineWidth(o)
-    cr = s == "small" and r or (r - (o / 2)) / math.cos(math.pi / n)
-    v = {}
-    for i = 0, n - 1 do
-        local a = (i / n) * math.pi * 2
-        table.insert(v, cr * math.cos(a) + x)
-        table.insert(v, cr * math.sin(a) + y)
-    end
-    lvg.polygon("line", v)
-end
-
-function UI.stargon(s, x, y, n, r, c, o, t) -- (x, y, vertices, radius, color, outline width, transparency)
-    t = t or 1
-    local r1 = r + (4 * r / n / n)
-    local r2 = r - (4 * r / n / n)
-    local cr1 = s == "small" and r1 or r1 / math.cos(math.pi / n)
-    local cr2 = s == "small" and r2 or r2 / math.cos(math.pi / n)
-    local v = {}
-    for i = 0, n - 1 do
-        local a = (i / n) * math.pi * 2
-        table.insert(v, cr2 * math.cos(a) + x)
-        table.insert(v, cr2 * math.sin(a) + y)
-        a = a + ((0.5 / n) * math.pi * 2)
-        table.insert(v, cr1 * math.cos(a) + x)
-        table.insert(v, cr1 * math.sin(a) + y)
-    end
-    lvg.setColor(multiplyAlpha(c, t))
-    if not UI.DEBUG then
-        lvg.polygon("fill", v)
-        lvg.setColor(multiplyAlpha(UI.color.line, t))
-    end
-    lvg.setLineWidth(o)
-    cr1 = s == "small" and r1 - (o / 2) or (r1 - (o / 2)) / math.cos(math.pi / n)
-    cr2 = s == "small" and r2 - (o / 2) or (r2 - (o / 2)) / math.cos(math.pi / n)
-    v = {}
-    for i = 0, n - 1 do
-        local a = (i / n) * math.pi * 2
-        table.insert(v, cr2 * math.cos(a) + x)
-        table.insert(v, cr2 * math.sin(a) + y)
-        a = a + ((0.5 / n) * math.pi * 2)
-        table.insert(v, cr1 * math.cos(a) + x)
-        table.insert(v, cr1 * math.sin(a) + y)
-    end
-    lvg.polygon("line", v)
-end
-
--- BUTTON
-UI.buttons = {}
-UI.Button = class("Button")
-function UI.Button:init(text, color, x, y, alignment, font)
-    self.text = text
-    self.font = font or UI.font
-    self.x = x or 0
-    self.y = y or 0
-    self.alignment = alignment or "both"
-    self.width = self.font:getWidth(self.text) + (outlineWidth * 2) + 32
-    self.height = self.font:getHeight(self.text) + (outlineWidth * 2) + 16
-    self.color = color or UI.color.darkGray
-    self.xOffset = 0
-    self.yOffset = 0
-    self.hovered = false
-    self.pressed = false
-
-    table.insert(UI.buttons, self)
-end
-
-function UI.Button:draw()
-    UI.rect(self.x, self.y, self.width, self.height, self.color, outlineWidth, outlineRadius, self.alignment)
-    if self.hovered then
-        UI.rect(self.x, self.y, self.width, self.height, UI.color.hover, outlineWidth, outlineRadius, self.alignment, 1,
-            false)
-    end
-    UI.text(self.text, self.font, self.x, self.y, self.width)
-    UI.rect(self.x, self.y, self.width - (outlineWidth * 2), (self.height - (outlineWidth * 2)) / 2,
-        self.pressed and UI.color.shadow or UI.color.highlight, outlineWidth, outlineRadius - outlineWidth,
-        self.alignment, 1, false)
-end
-
-function UI.Button:contains(x, y)
-    if x > ((self.x + self.xOffset) - (self.width / 2)) and x < (self.x + self.xOffset) + (self.width / 2) and y > (self.y + self.yOffset) - (self.height / 2) and y < (self.y + self.yOffset) + (self.height / 2) then
-        return true
-    end
-    return false
-end
-
--- MOUSE FUNCTIONS
-function UI.mousemoved(x, y)
-    UI.mouseoverbutton = false
-    for _, b in ipairs(UI.buttons) do
-        if b:contains(x, y) then
-            UI.mouseoverbutton = true
-            if not b.pressed then
-                b.hovered = true
-            end
+    UI.color = setmetatable({}, {
+        __index = function(t, k)
+            return utils.copy(colors[k])
         end
-        if not b:contains(x, y) then
-            b.hovered = false
+    })
+end
+
+-- CLASSES
+
+-- BAR
+local Bar, Container, Fill
+UI.Bar = class("Bar")
+function UI.Bar:init(x, y, height, full, fill, color, label)
+    self.full = full
+    self.fill = fill
+    self.color = color
+    self.img = GVG.Group(nil, x, y)
+
+    self.max = GVG.Alias(Bar)
+    self.max.uniforms.point1[1] = { -(self.full / 2), 0 }
+    self.max.uniforms.point2[1] = { (self.full / 2), 0 }
+    self.max.offset = height
+    self.img:add(self.max)
+
+    self.container = GVG.Shape("segment")
+    self.container.color = UI.color.darkerGray
+    self.container.uniforms.point1 = self.max.uniforms.point1
+    self.container.uniforms.point2 = self.max.uniforms.point2
+    self.container.offset = height - 2
+    self.container:createMesh()
+    self.container:compileShader((lvf.read("GVG/baseF2.glsl")))
+    self.img:add(self.container)
+
+    self.fillBar = GVG.Shape("segment")
+    self.fillBar.color = self.color
+    self.fillBar.uniforms.point1[1] = { -(self.full / 2), 0 }
+    self.fillBar.uniforms.point2[1] = { self.fill - (self.full / 2), 0 }
+    self.fillBar.offset = height - 2
+    self.fillBar:createMesh()
+    self.fillBar:compileShader((lvf.read("GVG/baseF2.glsl")))
+    self.img:add(self.fillBar)
+
+    if label ~= nil then
+        self.label = GVG.Text(label, nil, 10, "bitmapsdf")
+        self.img:add(self.label)
+    end
+end
+
+function UI.Bar:update(fill, full, color, label)
+    self.full = full or self.full
+    self.fill = utils.clamp(fill or self.fill, 0, self.full)
+    self.color = color or self.color
+    if self.label then
+        self.label.text = label
+        if self.label.bitmapProperties then
+            self.label.bitmapProperties.img = nil
         end
     end
-    lvm.setCursor(lvm.getSystemCursor(UI.mouseoverbutton == true and "hand" or "arrow"))
+
+    self.max.uniforms.point1[1][1] = -(self.full / 2)
+    self.max.uniforms.point2[1][1] = self.full / 2
+    self.fillBar.uniforms.point1[1][1] = -(self.full / 2)
+    self.fillBar.uniforms.point2[1][1] = self.fill - (self.full / 2)
+    self.fillBar.color = self.color
+end
+
+-- BOARD
+UI.Board = class("Board")
+function UI.Board:init(hostPlayer, players)
+    local sortedPlayers = utils.copy(players)
+    table.insert(sortedPlayers, hostPlayer)
+    table.sort(sortedPlayers, function(a, b) return a.score > b.score end)
+    self.highest = sortedPlayers[1].score
+    self.bars = {}
+    Bar = GVG.Shape("segment")
+    Bar.color = UI.color.black
+    Bar:createMesh()
+    Bar:compileShader((lvf.read("GVG/baseF2.glsl")))
+    self.img = GVG.Group(nil, WindowW, WindowH)
+
+    local label = GVG.Text("Scoreboard", nil, 26, "bitmapsdf", -110, -16)
+    self.img:add(label)
+
+    local barsImg = GVG.Group(nil, -110, -50)
+    self.img:add(barsImg)
+
+    for i, p in pairs(sortedPlayers) do
+        if i <= boardMax then
+            local bar = UI.Bar(0, -18 * (i - 1), 8, 200, (p.score / self.highest) * 200, p.color, p.name)
+            table.insert(self.bars, bar)
+            barsImg:add(bar.img)
+        end
+    end
+end
+
+function UI.Board:update(hostPlayer, players)
+    self.img.x, self.img.y = WindowW, WindowH
+
+    local sortedPlayers = utils.copy(players)
+    table.insert(sortedPlayers, hostPlayer)
+    table.sort(sortedPlayers, function(a, b) return a.score > b.score end)
+    self.highest = sortedPlayers[1].score
+
+    for i, b in ipairs(self.bars) do
+        if i <= boardMax then
+            local p = sortedPlayers[i]
+            b:update((p.score / self.highest) * 200, 200, p.color, p.name .. " - " .. abbreviate(p.score))
+        end
+    end
+end
+
+-- MINIMAP
+local Dot
+UI.Minimap = class("Minimap")
+function UI.Minimap:init()
+    self.minimapSize = MAPSIZE / minimapScale
+    self.dots = {}
+    self.img = GVG.Group(nil, WindowW - self.minimapSize, -(WindowH - self.minimapSize))
+
+    local minimapBG = GVG.Shape("square")
+    minimapBG.color = UI.color.minimap
+    minimapBG.r = Map.r
+    minimapBG.uniforms.radius[1] = self.minimapSize + 2
+    minimapBG.offset = OFFSET
+    minimapBG:createMesh()
+    minimapBG:compileShader()
+    self.img:add(minimapBG)
+
+    Dot = GVG.Shape("circle")
+    Dot.uniforms.radius[1] = 2
+    Dot.offset = OFFSET
+    Dot:createMesh()
+    Dot:compileShader()
+end
+
+function UI.Minimap:addDot(x, y, color)
+    local aDot = GVG.Alias(Dot)
+    table.insert(self.dots, aDot)
+    self.img:add(aDot)
+end
+
+function UI.Minimap:populate(hostPlayer, players)
+    local sortedPlayers = utils.copy(players)
+    table.insert(sortedPlayers, hostPlayer)
+    table.sort(sortedPlayers, function(a, b) return a.score > b.score end)
+
+    for _, p in ipairs(sortedPlayers) do
+        self:addDot(p.img.x, p.img.y, p.color)
+    end
+end
+
+function UI.Minimap:update(hostPlayer, players)
+    self.img.x, self.img.y = WindowW - self.minimapSize, -(WindowH - self.minimapSize)
+
+    local sortedPlayers = utils.copy(players)
+    table.insert(sortedPlayers, hostPlayer)
+    table.sort(sortedPlayers, function(a, b) return a.score > b.score end)
+
+    for i, p in ipairs(sortedPlayers) do
+        local d = self.dots[i]
+        d.x, d.y = p.img.x / minimapScale, p.img.y / minimapScale
+        d.properties.color = p.color
+    end
 end
 
 return UI
