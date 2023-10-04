@@ -1,0 +1,13 @@
+{
+    "default": "Basic",
+    "upgrades": [
+        {
+            "Basic": [
+                "Twin",
+                "Sniper",
+                "Machine Gun",
+                "Flank Guard"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,43 @@
+{
+    "name": "Twin",
+    "body": "circle",
+    "FOV": 1,
+    "accessories": [
+        {
+            "type": "cannon",
+            "object": "bullet",
+            "position": [
+                -0.5,
+                0
+            ],
+            "angle": 0,
+            "fire": 0,
+            "stats": {
+                "speed": 1,
+                "penetration": 0.9,
+                "damage": 0.65,
+                "reload": 1,
+                "spread": 1,
+                "recoil": 0.25
+            }
+        },
+        {
+            "type": "cannon",
+            "object": "bullet",
+            "position": [
+                0.5,
+                0
+            ],
+            "angle": 0,
+            "fire": 0.5,
+            "stats": {
+                "speed": 1,
+                "penetration": 0.9,
+                "damage": 0.65,
+                "reload": 1,
+                "spread": 1,
+                "recoil": 0.25
+            }
+        }
+    ]
+}

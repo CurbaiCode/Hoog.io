@@ -1,0 +1,24 @@
+{
+    "name": "Sniper",
+    "body": "circle",
+    "FOV": 1.1,
+    "accessories": [
+        {
+            "type": "sniper",
+            "object": "bullet",
+            "position": [
+                0,
+                0
+            ],
+            "angle": 0,
+            "stats": {
+                "speed": 1,
+                "penetration": 1,
+                "damage": 1,
+                "reload": 1,
+                "spread": 0.5,
+                "recoil": 1
+            }
+        }
+    ]
+}

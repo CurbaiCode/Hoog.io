@@ -1,0 +1,41 @@
+{
+    "name": "Flank Guard",
+    "body": "circle",
+    "FOV": 1,
+    "accessories": [
+        {
+            "type": "cannon",
+            "object": "bullet",
+            "position": [
+                0,
+                0
+            ],
+            "angle": 0,
+            "stats": {
+                "speed": 1,
+                "penetration": 1,
+                "damage": 1,
+                "reload": 1,
+                "spread": 1,
+                "recoil": 1
+            }
+        },
+        {
+            "type": "cannon",
+            "object": "bullet",
+            "position": [
+                0,
+                0
+            ],
+            "angle": 180,
+            "stats": {
+                "speed": 1,
+                "penetration": 1,
+                "damage": 1,
+                "reload": 1,
+                "spread": 1,
+                "recoil": 1
+            }
+        }
+    ]
+}

@@ -1,0 +1,24 @@
+{
+    "name": "Machine Gun",
+    "body": "circle",
+    "FOV": 1,
+    "accessories": [
+        {
+            "type": "machine-gun",
+            "object": "bullet",
+            "position": [
+                0,
+                0
+            ],
+            "angle": 0,
+            "stats": {
+                "speed": 1,
+                "penetration": 1,
+                "damage": 0.7,
+                "reload": 2,
+                "spread": 2,
+                "recoil": 1
+            }
+        }
+    ]
+}
