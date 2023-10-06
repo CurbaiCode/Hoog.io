@@ -33,4 +33,8 @@ function U.copy(obj, seen)
     return res --setmetatable(res, getmetatable(obj))
 end
 
+function U.degToRad(d)
+    return d * math.pi / 180
+end
+
 return U

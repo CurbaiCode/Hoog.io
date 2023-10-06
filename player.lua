@@ -30,6 +30,7 @@ local function construct(player, color, type)
         local plan = JSON.decode((lvf.read("blueprints/parts/" .. a.type .. ".json")))
         local part = GVG.Shape(plan.shape)
         part.color = UI.color.darkGray()
+        part.r = utils.degToRad(a.angle)
         if plan.shape == "strip" then
             part.uniforms.point1[1] = { a.position[1], a.position[2] }
             part.uniforms.point2[1] = { a.position[1], a.position[2] + radius + plan.length }
