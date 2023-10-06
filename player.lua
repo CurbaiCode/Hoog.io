@@ -24,6 +24,7 @@ local blueprints = JSON.decode((lvf.read("blueprints/index.json")))
 -- FUNCTIONS
 local function construct(player, color, type)
     type = (type ~= "") and type or blueprints.default
+    player.userData.tank = type
     local blueprint = JSON.decode((lvf.read("blueprints/" .. string.gsub(type:lower(), "%s", "-") .. ".json")))
 
     for i = #blueprint.accessories, 1, -1 do

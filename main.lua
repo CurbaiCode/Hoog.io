@@ -15,7 +15,6 @@ local utils = require("utils")
 -- SHORTCUTS
 local lvg = love.graphics
 local lvm = love.mouse
-local lvf = love.filesystem
 
 -- CONSTANTS
 DEBUG = false
@@ -25,6 +24,7 @@ local camera = nil
 local scene = nil
 local world = nil
 local arena = nil
+local zone = nil
 local map = nil
 local player = nil
 local owners = {
@@ -50,14 +50,16 @@ function love.load()
     scene = GVG.Group()
     world = GVG.Group()
     arena = GVG.Group()
+    zone = GVG.Group()
     scene:add(world)
     scene:add(arena)
+    scene:add(zone)
     camera:add(scene)
     camera.s = 30
 
     map = GVG.Shape("rectangle")
     map.color = UI.color.lightGray()
-    map.uniforms.size[1] = { 60, 60 }
+    map.uniforms.size[1] = { 50, 50 }
     map:createMesh()
     map:compileShader()
     world:add(map)
@@ -82,11 +84,12 @@ function love.load()
     -- Network.connect()
 
     -- PLAYERS
-    player = Player.New(math.random() * 60, math.random() * 60, { up = "w", down = "s", left = "a", right = "d" },
-        UI.color.cyan(), "Software")
+    player = Player.New((math.random() - 0.5) * 50, (math.random() - 0.5) * 50,
+        { up = "w", down = "s", left = "a", right = "d" },
+        UI.color.cyan(), "Dev")
     table.insert(owners["Me"].players, player)
     for _, p in ipairs(owners["Me"].players) do
-        arena:add(p)
+        zone:add(p)
     end
 end
 
@@ -136,13 +139,14 @@ function love.update(dt)
                     if owners[result.peer:connect_id()].players[i] then
                         owners[result.peer:connect_id()].players[i].x = p.x
                         owners[result.peer:connect_id()].players[i].y = p.y
+                        owners[result.peer:connect_id()].players[i].r = p.r
                     end
                 end
             elseif newData.message == "request" then
                 local package = utils.copy(player.userData)
                 package.keys = nil
                 package.controls = nil
-                package.x, package.y = player.x, player.y
+                package.x, package.y, package.r = player.x, player.y, player.r
                 Network.send(JSON.encode({
                     message = "respond",
                     player = package
@@ -159,7 +163,7 @@ function love.update(dt)
     scene.x, scene.y = -player.x, -player.y
     local package = {}
     for _, p in ipairs(owners["Me"].players) do
-        table.insert(package, { x = p.x, y = p.y })
+        table.insert(package, { x = p.x, y = p.y, r = p.r })
     end
     Network.broadcast(JSON.encode({
         message = "update",
