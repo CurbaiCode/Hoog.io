@@ -4,7 +4,9 @@
  --
  -- Copyright (c) 2023 Curbai. All rights reserved.
 --]]
-package.path = package.path .. ";./dkjson/?.lua;./GVG-Lua/?.lua;./30log/?.lua;./uuid/src/?.lua"
+package.path = package.path .. ";" .. arg[1] .. "/dkjson/?.lua"
+package.path = package.path .. ";" .. arg[1] .. "/GVG-Lua/?.lua;" ..
+    arg[1] .. "/30log/?.lua;" .. arg[1] .. "/uuid/src/?.lua"
 local JSON = require("dkjson")
 local GVG = require("GVG")
 local UI = require("UI")
