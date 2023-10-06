@@ -66,12 +66,12 @@ function love.load()
     map:compileShader()
     world:add(map)
 
-    -- local nest = GVG.Shape("rectangle")
-    -- nest.color = UI.color.indigo()
-    -- nest.uniforms.size[1] = { 20, 20 }
-    -- nest:createMesh()
-    -- nest:compileShader()
-    -- world:add(nest)
+    local nest = GVG.Shape("rectangle")
+    nest.color = UI.color.indigo(0.4)
+    nest.uniforms.size[1] = { 20, 20 }
+    nest:createMesh()
+    nest:compileShader()
+    world:add(nest)
 
     local grid = GVG.Shape("grid")
     grid.color = UI.color.grid()

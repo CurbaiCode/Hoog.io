@@ -11,9 +11,9 @@ UI.DarkMode = false
 
 -- FUNCTIONS
 local function newColor(r1, g1, b1, r2, g2, b2, a1, a2)
-    return function()
-        return (UI.DarkMode and r2) and { r2 / 255, g2 / 255, b2 / 255, (a2 or 1) } or
-            { r1 / 255, g1 / 255, b1 / 255, (a1 or 1) }
+    return function(ax)
+        return (UI.DarkMode and r2) and { r2 / 255, g2 / 255, b2 / 255, ((ax or a2) or 1) } or
+            { r1 / 255, g1 / 255, b1 / 255, ((ax or a1) or 1) }
     end
 end
 
@@ -36,7 +36,7 @@ UI.color = {
     darkerGray = newColor(72, 72, 74),
     darkGray = newColor(142, 142, 147),
     gray = newColor(174, 174, 178, 58, 58, 60),
-    lightGray = newColor(199, 199, 204, 72, 72, 74),
+    lightGray = newColor(209, 209, 214, 72, 72, 74),
     minimap = newColor(242, 242, 247, 99, 99, 102, 0.5, 0.5),
     grid = newColor(0, 0, 0, 0, 0, 0, 0.12, 0.16)
 }

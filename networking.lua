@@ -5,23 +5,24 @@
  -- Copyright (c) 2023 Curbai. All rights reserved.
 --]]
 local enet = require("enet")
+local socket = require("socket")
 
 local N = {}
 
 -- CONSTANTS
-local socket = nil
+local host = nil
 
 -- MAIN
-function N.init(ip)
-    socket = assert(enet.host_create(ip .. ":16473"))
+function N.init()
+    host = assert(enet.host_create((socket.dns.toip(socket.dns.gethostname())) .. ":16473"))
 end
 
 function N.connect(ip)
-    socket:connect(ip .. ":16473")
+    host:connect(ip .. ":16473")
 end
 
 function N.broadcast(data)
-    socket:broadcast(data)
+    host:broadcast(data)
 end
 
 function N.send(data, target)
@@ -29,7 +30,7 @@ function N.send(data, target)
 end
 
 function N.receive(timeout)
-    return timeout and socket:service(timeout) or socket:service()
+    return timeout and host:service(timeout) or host:service()
 end
 
 return N
