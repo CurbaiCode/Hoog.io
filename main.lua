@@ -20,6 +20,7 @@ local lvf = love.filesystem
 -- CONSTANTS
 DEBUG = false
 UI.DarkMode = false
+local mouseX, mouseY = 0, 0
 local camera = nil
 local scene = nil
 local world = nil
@@ -90,7 +91,7 @@ function love.load()
 end
 
 function love.mousemoved(x, y)
-
+    mouseX, mouseY = GVG.screenToWorld(lvm.getPosition())
 end
 
 function love.mousepressed(x, y, button)
@@ -154,7 +155,7 @@ function love.update(dt)
         end
         result = Network.receive()
     end
-    Player.update(owners["Me"].players, dt)
+    Player.update(owners["Me"].players, mouseX, mouseY, dt)
     scene.x, scene.y = -player.x, -player.y
     local package = {}
     for _, p in ipairs(owners["Me"].players) do

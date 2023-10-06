@@ -81,8 +81,11 @@ function P.import(playerData)
     return player
 end
 
-function P.update(players, dt)
+function P.update(players, mx, my, dt)
     for _, p in ipairs(players) do
+        -- ROTATION
+        p.r = math.atan2(mx, my)
+
         -- MOVEMENT
         local ax, ay = utils.clampLength((p.userData.controls.right - p.userData.controls.left),
             (p.userData.controls.up - p.userData.controls.down), 0, 0.02)
