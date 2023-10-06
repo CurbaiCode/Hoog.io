@@ -12,7 +12,8 @@ UI.DarkMode = false
 -- FUNCTIONS
 local function newColor(r1, g1, b1, r2, g2, b2, a1, a2)
     return function()
-        return UI.DarkMode and { r2 / 255, g2 / 255, b2 / 255, (a2 or 1) } or { r1 / 255, g1 / 255, b1 / 255, (a1 or 1) }
+        return (UI.DarkMode and r2) and { r2 / 255, g2 / 255, b2 / 255, (a2 or 1) } or
+            { r1 / 255, g1 / 255, b1 / 255, (a1 or 1) }
     end
 end
 
