@@ -178,18 +178,24 @@ function love.update(dt)
                     end
                 end
             elseif newData.message == "request" then
-                local package = utils.copy(player.userData)
-                package.keys = nil
-                package.controls = nil
-                package.x, package.y, package.r = player.x, player.y, player.r
+                local playersData = {}
+                for _, p in ipairs(owners["Me"].players) do
+                    local playerData = utils.copy(p.userData)
+                    playerData.keys = nil
+                    playerData.controls = nil
+                    playerData.x, playerData.y, playerData.r = p.x, p.y, p.r
+                    table.insert(playersData, playerData)
+                end
                 Network.send(JSON.encode({
                     message = "respond",
-                    player = package
+                    players = playersData
                 }), result.peer)
             elseif newData.message == "respond" then
-                local foreignPlayer = Player.import(newData.player)
-                table.insert(owners[result.peer:connect_id()].players, foreignPlayer)
-                arena:add(foreignPlayer)
+                for _, p in ipairs(newData.players) do
+                    local foreignPlayer = Player.import(p)
+                    table.insert(owners[result.peer:connect_id()].players, foreignPlayer)
+                    arena:add(foreignPlayer)
+                end
             end
         end
         result = Network.receive()
