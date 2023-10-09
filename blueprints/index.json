@@ -7,6 +7,9 @@
                 "Sniper",
                 "Machine Gun",
                 "Flank Guard"
+            ],
+            "Machine Gun": [
+                "Destroyer"
             ]
         }
     ]

@@ -57,7 +57,6 @@ function love.load()
     scene:add(arena)
     scene:add(zone)
     camera:add(scene)
-    camera.s = 30
 
     map = GVG.Shape("rectangle")
     map.color = UI.color.lightGray()
@@ -72,6 +71,38 @@ function love.load()
     nest:createMesh()
     nest:compileShader()
     world:add(nest)
+
+    local cyanBase = GVG.Shape("rectangle")
+    cyanBase.color = UI.color.cyan(0.4)
+    cyanBase.uniforms.size[1] = { 10, 10 }
+    cyanBase.x, cyanBase.y = -40, 40
+    cyanBase:createMesh()
+    cyanBase:compileShader()
+    world:add(cyanBase)
+
+    local greenBase = GVG.Shape("rectangle")
+    greenBase.color = UI.color.green(0.4)
+    greenBase.uniforms.size[1] = { 10, 10 }
+    greenBase.x, greenBase.y = -40, -40
+    greenBase:createMesh()
+    greenBase:compileShader()
+    world:add(greenBase)
+
+    local redBase = GVG.Shape("rectangle")
+    redBase.color = UI.color.red(0.4)
+    redBase.uniforms.size[1] = { 10, 10 }
+    redBase.x, redBase.y = 40, -40
+    redBase:createMesh()
+    redBase:compileShader()
+    world:add(redBase)
+
+    local pinkBase = GVG.Shape("rectangle")
+    pinkBase.color = UI.color.pink(0.4)
+    pinkBase.uniforms.size[1] = { 10, 10 }
+    pinkBase.x, pinkBase.y = 40, 40
+    pinkBase:createMesh()
+    pinkBase:compileShader()
+    world:add(pinkBase)
 
     local grid = GVG.Shape("grid")
     grid.color = UI.color.grid()
@@ -93,6 +124,8 @@ function love.load()
     for _, p in ipairs(owners["Me"].players) do
         zone:add(p)
     end
+
+    love.resize()
 end
 
 function love.mousemoved(x, y)
@@ -116,7 +149,7 @@ function love.keyreleased()
 end
 
 function love.resize()
-
+    camera.s = math.sqrt((lvg.getWidth() * lvg.getHeight()) / 2304)
 end
 
 function love.update(dt)

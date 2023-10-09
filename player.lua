@@ -37,6 +37,11 @@ local function construct(player, color, type)
             part.uniforms.point1[1] = { a.position[1], 0 }
             part.uniforms.point2[1] = { a.position[1], a.position[2] + radius + plan.length }
             part.uniforms.width[1] = plan.width
+        elseif plan.shape == "trapezoid" then
+            part.uniforms.base1[1] = plan.width / 2
+            part.uniforms.base2[1] = plan.base / 2
+            part.uniforms.height[1] = (radius + plan.length) / 2
+            part.y = (radius + plan.length) / 2
         end
         part:createMesh()
         part:compileShader()
