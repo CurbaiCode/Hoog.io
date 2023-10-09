@@ -156,25 +156,25 @@ function love.update(dt)
     local result = Network.receive()
     while result do
         if result.type == "connect" then
-            owners[result.peer:connect_id()] = {
+            owners[result.peer:index()] = {
                 players = {},
                 objects = {},
                 drones = {}
             }
             Network.send(JSON.encode({ message = "request" }), result.peer)
         elseif result.type == "disconnect" then
-            for _, p in ipairs(owners[result.peer:connect_id()].players) do
+            for _, p in ipairs(owners[result.peer:index()].players) do
                 p:delete()
             end
-            owners[result.peer:connect_id()] = nil
+            owners[result.peer:index()] = nil
         elseif result.type == "receive" then
             local newData = JSON.decode(result.data)
             if newData.message == "update" then
                 for i, p in ipairs(newData.players) do
-                    if owners[result.peer:connect_id()].players[i] then
-                        owners[result.peer:connect_id()].players[i].x = p.x
-                        owners[result.peer:connect_id()].players[i].y = p.y
-                        owners[result.peer:connect_id()].players[i].r = p.r
+                    if owners[result.peer:index()].players[i] then
+                        owners[result.peer:index()].players[i].x = p.x
+                        owners[result.peer:index()].players[i].y = p.y
+                        owners[result.peer:index()].players[i].r = p.r
                     end
                 end
             elseif newData.message == "request" then
@@ -193,7 +193,7 @@ function love.update(dt)
             elseif newData.message == "respond" then
                 for _, p in ipairs(newData.players) do
                     local foreignPlayer = Player.import(p)
-                    table.insert(owners[result.peer:connect_id()].players, foreignPlayer)
+                    table.insert(owners[result.peer:index()].players, foreignPlayer)
                     arena:add(foreignPlayer)
                 end
             end
