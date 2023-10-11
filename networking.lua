@@ -36,7 +36,12 @@ function N.send(data, target)
 end
 
 function N.receive(timeout)
-    return timeout and host:service(timeout) or host:service()
+    local service = nil
+    local s, e = pcall(function()
+        service = timeout and host:service(timeout) or host:service()
+    end)
+    if not s then print(e) end
+    return service
 end
 
 function N.getPeers()
