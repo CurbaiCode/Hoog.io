@@ -161,7 +161,7 @@ function love.update(dt)
                 objects = {},
                 drones = {}
             }
-            Network.send(JSON.encode({ message = "request" }), result.peer)
+            Network.send(JSON.encode({ message = "connect", connections = Network.getPeers() }), result.peer)
         elseif result.type == "disconnect" then
             for _, p in ipairs(owners[result.peer:index()].players) do
                 p:delete()
@@ -169,7 +169,14 @@ function love.update(dt)
             owners[result.peer:index()] = nil
         elseif result.type == "receive" then
             local newData = JSON.decode(result.data)
-            if newData.message == "update" then
+            if newData.message == "connect" then
+                for _, ip in ipairs(newData.connections) do
+                    Network.connect(ip)
+                end
+                Network.send(JSON.encode({ message = "connected" }), result.peer)
+            elseif newData.message == "connected" then
+                Network.send(JSON.encode({ message = "request" }), result.peer)
+            elseif newData.message == "update" then
                 for i, p in ipairs(newData.players) do
                     if owners[result.peer:index()].players[i] then
                         owners[result.peer:index()].players[i].x = p.x
@@ -202,13 +209,13 @@ function love.update(dt)
     end
     Player.update(owners["Me"].players, mouseX, mouseY, dt)
     scene.x, scene.y = -player.x, -player.y
-    local package = {}
+    local playersInfo = {}
     for _, p in ipairs(owners["Me"].players) do
-        table.insert(package, { x = p.x, y = p.y, r = p.r })
+        table.insert(playersInfo, { x = p.x, y = p.y, r = p.r })
     end
     Network.broadcast(JSON.encode({
         message = "update",
-        players = package
+        players = playersInfo
     }))
 end
 
