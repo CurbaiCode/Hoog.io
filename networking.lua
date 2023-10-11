@@ -20,7 +20,10 @@ end
 
 function N.connect(ip)
     if ip ~= myIP then
-        host:connect(ip .. ":16473")
+        local peers = N.getPeers()
+        if not peers[ip] then
+            host:connect(ip .. ":16473")
+        end
     end
 end
 
@@ -41,7 +44,7 @@ function N.getPeers()
     for i = 1, host:peer_count() do
         local address = tostring(host:get_peer(i)):match("^(.*):")
         if address ~= "0.0.0.0" and address ~= myIP then
-            table.insert(peers, address)
+            peers[address] = true
         end
     end
     return peers

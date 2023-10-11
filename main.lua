@@ -170,7 +170,7 @@ function love.update(dt)
         elseif result.type == "receive" then
             local newData = JSON.decode(result.data)
             if newData.message == "connect" then
-                for _, ip in ipairs(newData.connections) do
+                for ip, _ in pairs(newData.connections) do
                     Network.connect(ip)
                 end
                 Network.send(JSON.encode({ message = "connected" }), result.peer)
