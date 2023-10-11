@@ -163,10 +163,12 @@ function love.update(dt)
             }
             Network.send(JSON.encode({ message = "connect", connections = Network.getPeers() }), result.peer)
         elseif result.type == "disconnect" then
-            for _, p in ipairs(owners[result.peer:index()].players) do
-                p:delete()
+            if owners[result.peer:index()] then
+                for _, p in ipairs(owners[result.peer:index()].players) do
+                    p:delete()
+                end
+                owners[result.peer:index()] = nil
             end
-            owners[result.peer:index()] = nil
         elseif result.type == "receive" then
             local newData = JSON.decode(result.data)
             if newData.message == "connect" then
