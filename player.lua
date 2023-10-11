@@ -44,7 +44,7 @@ local function construct(player, color, type)
             part.y = (radius + plan.length) / 2
         end
         part:createMesh()
-        part:compileShader()
+        part:compileShader("baseF.glsl")
         player:add(part)
     end
 
@@ -52,7 +52,7 @@ local function construct(player, color, type)
     body.color = color
     body.uniforms.radius[1] = radius
     body:createMesh()
-    body:compileShader()
+    body:compileShader("baseF.glsl")
     player:add(body)
 end
 
