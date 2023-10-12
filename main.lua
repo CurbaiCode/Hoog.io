@@ -32,6 +32,7 @@ local player = nil
 local owners = {
     Me = {
         players = {},
+        previous = {},
         objects = {},
         drones = {}
     }
@@ -178,14 +179,6 @@ function love.update(dt)
                 Network.send(JSON.encode({ message = "connected" }), result.peer)
             elseif newData.message == "connected" then
                 Network.send(JSON.encode({ message = "request" }), result.peer)
-            elseif newData.message == "update" then
-                for i, p in ipairs(newData.players) do
-                    if owners[result.peer:index()].players[i] then
-                        owners[result.peer:index()].players[i].x = p.x
-                        owners[result.peer:index()].players[i].y = p.y
-                        owners[result.peer:index()].players[i].r = p.r
-                    end
-                end
             elseif newData.message == "request" then
                 local playersData = {}
                 for _, p in ipairs(owners["Me"].players) do
@@ -205,6 +198,14 @@ function love.update(dt)
                     table.insert(owners[result.peer:index()].players, foreignPlayer)
                     arena:add(foreignPlayer)
                 end
+            elseif newData.message == "update" then
+                for i, p in ipairs(newData.players) do
+                    if owners[result.peer:index()].players[i] then
+                        owners[result.peer:index()].players[i].x = p.x or owners[result.peer:index()].players[i].x
+                        owners[result.peer:index()].players[i].y = p.y or owners[result.peer:index()].players[i].y
+                        owners[result.peer:index()].players[i].r = p.r or owners[result.peer:index()].players[i].r
+                    end
+                end
             end
         end
         result = Network.receive()
@@ -212,8 +213,30 @@ function love.update(dt)
     Player.update(owners["Me"].players, mouseX, mouseY, dt)
     scene.x, scene.y = -player.x, -player.y
     local playersInfo = {}
-    for _, p in ipairs(owners["Me"].players) do
-        table.insert(playersInfo, { x = p.x, y = p.y, r = p.r })
+    for i, p in ipairs(owners["Me"].players) do
+        local playerInfo = {}
+        if not owners["Me"].previous[i].x then
+            owners["Me"].previous[i].x = 0
+        end
+        if not owners["Me"].previous[i].y then
+            owners["Me"].previous[i].y = 0
+        end
+        if not owners["Me"].previous[i].r then
+            owners["Me"].previous[i].r = 0
+        end
+        if owners["Me"].previous[i].x ~= p.x then
+            playerInfo.x = p.x
+            owners["Me"].previous[i].x = p.x
+        end
+        if owners["Me"].previous[i].y ~= p.y then
+            playerInfo.y = p.y
+            owners["Me"].previous[i].y = p.y
+        end
+        if owners["Me"].previous[i].r ~= p.r then
+            playerInfo.r = p.r
+            owners["Me"].previous[i].r = p.r
+        end
+        table.insert(playersInfo, playerInfo)
     end
     Network.broadcast(JSON.encode({
         message = "update",
