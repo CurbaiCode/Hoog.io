@@ -3,7 +3,7 @@
 > An open-source fanmade spin-off of Diep.io written in Lua using Löve2D and GVG.
 
 > [!WARNING]
-> This project is in alpha and is not indended to function.
+> This project is in alpha and is not intended to function.
 
 > [!NOTE]
 > LAN multiplayer is supported, but limited to player basic info.
