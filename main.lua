@@ -215,14 +215,8 @@ function love.update(dt)
     local playersInfo = {}
     for i, p in ipairs(owners["Me"].players) do
         local playerInfo = {}
-        if not owners["Me"].previous[i].x then
-            owners["Me"].previous[i].x = 0
-        end
-        if not owners["Me"].previous[i].y then
-            owners["Me"].previous[i].y = 0
-        end
-        if not owners["Me"].previous[i].r then
-            owners["Me"].previous[i].r = 0
+        if not owners["Me"].previous[i] then
+            owners["Me"].previous[i] = { x = 0, y = 0, r = 0 }
         end
         if owners["Me"].previous[i].x ~= p.x then
             playerInfo.x = p.x
