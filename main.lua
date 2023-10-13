@@ -33,8 +33,8 @@ local owners = {
     Me = {
         players = {},
         previous = {},
-        objects = {},
-        drones = {}
+        passives = {},
+        actives = {}
     }
 }
 
@@ -159,8 +159,8 @@ function love.update(dt)
         if result.type == "connect" then
             owners[result.peer:index()] = {
                 players = {},
-                objects = {},
-                drones = {}
+                passives = {},
+                actives = {}
             }
             Network.send(JSON.encode({ message = "connect", connections = Network.getPeers() }), result.peer)
         elseif result.type == "disconnect" then
