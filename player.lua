@@ -93,11 +93,14 @@ function P.update(players, mx, my, dt)
         p.r = math.atan2(mx, my)
 
         -- MOVEMENT
-        local ax, ay = utils.clampLength((p.userData.controls.right - p.userData.controls.left),
-            (p.userData.controls.up - p.userData.controls.down), 0, 0.02)
-        p.userData.vx, p.userData.vy = p.userData.vx + ax, p.userData.vy + ay
-        p.x, p.y = p.x + p.userData.vx, p.y + p.userData.vy
-        p.userData.vx, p.userData.vy = utils.damp(p.userData.vx, 0, 4, dt), utils.damp(p.userData.vy, 0, 4, dt)
+        local maxSpeed = 12
+        local lambda = -60 * math.log(0.985, 2)
+        local dx, dy = utils.clampLength(p.userData.controls.right - p.userData.controls.left,
+            p.userData.controls.up - p.userData.controls.down, 0, 1)
+        local ax, ay = dx * 0.5, dy * 0.5
+        p.userData.vx, p.userData.vy = utils.damp(p.userData.vx, 0, lambda, dt), utils.damp(p.userData.vy, 0, lambda, dt)
+        p.userData.vx, p.userData.vy = utils.clampLength(p.userData.vx + ax, p.userData.vy + ay, 0, maxSpeed)
+        p.x, p.y = p.x + (p.userData.vx * dt), p.y + (p.userData.vy * dt)
     end
 end
 
