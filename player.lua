@@ -48,12 +48,24 @@ local function construct(player, color, type)
         player:add(part)
     end
 
-    local body = GVG.Shape(blueprint.body)
-    body.color = color
-    body.uniforms.radius[1] = radius
-    body:createMesh()
-    body:compileShader("baseF.glsl")
-    player:add(body)
+    player.userData.body = GVG.Shape(blueprint.body)
+    player.userData.body.color = player.userData.invincible and UI.color.darkGray() or color
+    player.userData.body.uniforms.radius[1] = radius
+    player.userData.body:createMesh()
+    player.userData.body:compileShader("baseF.glsl")
+    player:add(player.userData.body)
+
+    player.userData.extra = GVG.Group()
+    player:add(player.userData.extra)
+
+    local name = GVG.Text(player.userData.name)
+    name.mode = "software"
+    name.softwareProperties = { scaleCorrection = false }
+    name.snapToPixel = true
+    name.size = 1
+    name.font = "fonts/Now-Bold.otf"
+    name.y = 2
+    player.userData.extra:add(name)
 end
 
 -- MAIN
@@ -89,14 +101,22 @@ end
 
 function P.update(players, mx, my, dt)
     for _, p in ipairs(players) do
+        local horizontal, vertical = p.userData.controls.right - p.userData.controls.left,
+            p.userData.controls.up - p.userData.controls.down
+
+        if horizontal ~= 0 or vertical ~= 0 then
+            p.userData.invincible = false
+            p.userData.body.color = p.userData.color
+        end
+
         -- ROTATION
         p.r = math.atan2(mx, my)
+        p.userData.extra.r = -p.r
 
         -- MOVEMENT
         local maxSpeed = 12
         local lambda = -60 * math.log(0.985, 2)
-        local dx, dy = utils.clampLength(p.userData.controls.right - p.userData.controls.left,
-            p.userData.controls.up - p.userData.controls.down, 0, 1)
+        local dx, dy = utils.clampLength(horizontal, vertical, 0, 1)
         local ax, ay = dx * 0.5, dy * 0.5
         p.userData.vx, p.userData.vy = utils.damp(p.userData.vx, 0, lambda, dt), utils.damp(p.userData.vy, 0, lambda, dt)
         p.userData.vx, p.userData.vy = utils.clampLength(p.userData.vx + ax, p.userData.vy + ay, 0, maxSpeed)
