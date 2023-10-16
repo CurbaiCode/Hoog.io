@@ -11,10 +11,17 @@
 ## Dependencies
 
  * [dkjson](https://github.com/LuaDist/dkjson/)
- * [GVG](https://github.com/Labrium/GVG-Lua/)
+ * [GVG-Lua](https://github.com/Labrium/GVG-Lua/)
    - [30log](https://github.com/Yonaba/30log)
    - [dkjson](https://github.com/LuaDist/dkjson/)
    - [uuid](https://github.com/Tieske/uuid/)
+
+## Special Thanks
+
+ * [Hanken Design Co.&reg;](https://hanken.co/)
+   - [Now Typeface](https://hanken.co/products/now/)
+ * [Labrium](https://labrium.github.io/)
+   - [GVG](https://github.com/Labrium/GVG/)
 
 ## License
 
