@@ -48,15 +48,15 @@ local function construct(player, color, type)
         player:add(part)
     end
 
-    player.userData.body = GVG.Shape(blueprint.body)
-    player.userData.body.color = player.userData.invincible and UI.color.darkGray() or color
-    player.userData.body.uniforms.radius[1] = radius
-    player.userData.body:createMesh()
-    player.userData.body:compileShader("baseF.glsl")
-    player:add(player.userData.body)
+    local body = GVG.Shape(blueprint.body)
+    body.color = player.userData.invincible and UI.color.darkGray() or color
+    body.uniforms.radius[1] = radius
+    body:createMesh()
+    body:compileShader("baseF.glsl")
+    player:add(body)
 
-    player.userData.extra = GVG.Group()
-    player:add(player.userData.extra)
+    local extra = GVG.Group()
+    player:add(extra)
 
     local name = GVG.Text(player.userData.name)
     name.mode = "software"
@@ -65,7 +65,7 @@ local function construct(player, color, type)
     name.size = 1
     name.font = "fonts/Now-Bold.otf"
     name.y = 2
-    player.userData.extra:add(name)
+    extra:add(name)
 end
 
 -- MAIN
@@ -106,12 +106,12 @@ function P.update(players, mx, my, dt)
 
         if horizontal ~= 0 or vertical ~= 0 then
             p.userData.invincible = false
-            p.userData.body.color = p.userData.color
+            -- p.body.color = p.userData.color
         end
 
         -- ROTATION
         p.r = math.atan2(mx, my)
-        p.userData.extra.r = -p.r
+        -- p.extra.r = -p.r
 
         -- MOVEMENT
         local maxSpeed = 12
