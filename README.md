@@ -1,4 +1,4 @@
-# Hoog.io
+<h1><img src="https://raw.githubusercontent.com/CurbaiCode/Hoog.io/main/docs/images/banner.png" alt="Hoog.io" width="50%"></h1>
 
 > An open-source fanmade spin-off of Diep.io written in Lua using Löve2D and GVG
 
